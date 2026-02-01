@@ -1,3 +1,5 @@
+Always read and write to and update IMPLEMENTATION_NOTES.md after making changes, trying expermints (write why they failed/succeeded) so that we can learn from them later on.
+
 # Bupa Arabia Health Hackathon - Knowledge Base
 
 > **Competition:** Intelligent Value Index (IVI) Challenge  
