@@ -192,6 +192,77 @@ result = (
 ## Next Steps
 
 - [ ] Develop IVI scoring model using `contract_level.parquet`
-- [ ] Analyze health patterns by nationality using dimension tables
+- [x] Analyze health patterns by nationality using dimension tables
 - [ ] Build retention prediction model
 - [ ] Create visualization dashboard
+
+---
+
+## Notebook 02: Business Insights Analysis
+
+**Created:** 2026-02-01  
+**File:** `notebooks/02_Business_Insights_Analysis.ipynb`
+
+### Purpose
+Creative business insights and strategic recommendations for the IVI initiative.
+
+### Analysis Framework
+
+1. **Portfolio Segmentation**
+   - Contract size segments: Micro, Small, Medium, Large, Enterprise
+   - Risk tiers based on Loss Ratio: Low Risk (<0.6), Moderate (0.6-0.85), Break-even (0.85-1.0), Elevated (1.0-1.3), High Risk (>1.3)
+
+2. **Demographic Deep Dive**
+   - Nationality-based cost analysis
+   - Gender utilization patterns
+   - Nationality diversity impact on contract performance
+
+3. **Provider Intelligence**
+   - Provider type cost analysis (Hospital, Pharmacy, Clinic, etc.)
+   - Regional cost efficiency comparison
+   - Network utilization patterns
+
+4. **Service Experience Analysis**
+   - Call category distribution
+   - Call intensity correlation with contract health
+
+5. **Cost Driver Analysis**
+   - Correlation analysis with Loss Ratio
+   - High-risk vs Low-risk contract profile comparison
+
+6. **Strategic Recommendations Framework**
+   - Action categories: HIGH PRIORITY, REVIEW, STAR CLIENTS, HEALTHY, MONITOR
+   - Specific recommendations per segment
+
+### Key Visualizations Created
+- `contract_size_analysis.png` - Contract distribution and premium share
+- `risk_tier_analysis.png` - Risk distribution across portfolio
+- `nationality_analysis.png` - Cost and utilization by nationality
+- `gender_analysis.png` - Gender-based healthcare patterns
+- `provider_analysis.png` - Provider type cost distribution
+- `regional_analysis.png` - Healthcare spend by region
+- `call_analysis.png` - Call center patterns
+- `cost_drivers.png` - Correlation analysis
+- `diagnosis_analysis.png` - Top diagnoses by cost
+- `recommendations.png` - Strategic action segmentation
+
+### Output Files
+- `contract_recommendations.parquet` - Contract data with ACTION_CATEGORY, RETENTION_RISK_SCORE, VALUE_SCORE
+- `action_summary.parquet` - Summary by action category
+
+### Key Insights Discovered
+1. Enterprise accounts generate most premium but require monitoring
+2. Nationality-based cost variations suggest targeted wellness opportunities
+3. Hospital costs dominate spend - network management is critical
+4. High call intensity correlates with higher costs
+5. Gender mix impacts utilization patterns
+
+### Strategic Recommendations Summary
+
+| Segment | Action | Target KPI |
+|---------|--------|------------|
+| HIGH PRIORITY | Deploy care managers, wellness programs | 15% loss ratio reduction |
+| REVIEW | Repricing, benefit design changes | 85% target loss ratio |
+| STAR CLIENTS | Premium service, early renewal | 95%+ retention |
+| HEALTHY | Standard management | Maintain <85% loss ratio |
+| MONITOR | Automated tracking | Trend toward target |
