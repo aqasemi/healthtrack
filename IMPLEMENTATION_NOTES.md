@@ -1,5 +1,176 @@
 # IVI Project - Implementation Notes
 
+## Experiments Log (Feb 2026)
+
+### Experiment: MIN_MEMBERS=5 Filtering (Feb 3, 2026)
+
+**Configuration:**
+- Filtering threshold: MIN_MEMBERS=5 (changed from 15)
+- Model: LightGBM with regularization
+
+**Results:**
+| Metric | Before (MIN=15) | After (MIN=5) |
+|--------|-----------------|---------------|
+| Churned F1 | 0.29 | **0.62** |
+| Retained F1 | ~0.70 | 0.69 |
+| Macro F1 | ~0.50 | **0.65** |
+| AUC-ROC | ~0.75 | 0.71 |
+| IVI Correlation | 0.50 | 0.44 |
+| Class Balance | 85/15 | 44/56 |
+
+**Analysis:**
+- MIN_MEMBERS=5 dramatically improved class balance (from 85/15 to 44/56)
+- Churned F1 improved from 0.29 to 0.62 (+114%)
+- IVI correlation decreased from 0.50 to 0.44 (expected with more balanced data)
+- AUC decreased slightly from ~0.75 to 0.71 (model has less "easy" small contracts to classify)
+
+**Conclusion:**
+- The MIN_MEMBERS=5 filter is BETTER for business relevance
+- Small contracts (1-4 members) are very noisy and not representative
+- The improved churned F1 means we can better identify at-risk contracts
+- Trade-off: Lower overall AUC but more balanced, actionable predictions
+
+**Key Insight:** The original "high" correlation (0.5) was inflated by:
+1. Small contracts clustering at extremes (easy to classify)
+2. Severe class imbalance making "always predict churn" seem accurate
+
+---
+
+## Recent Fixes (Feb 2026)
+
+### Notebook 03_IVI_ML_Model.ipynb - Code Reorganization
+
+**Issues Fixed:**
+1. **Cell execution order issues** - Cell 22 (IVI scoring) used `available_features` before it was defined
+2. **Missing segmentation code** - `IVI_RISK` and `SEGMENT` columns were used before being created
+3. **Variable definitions out of order** - `KPI_DEFINITIONS`, `REGION_INFO`, `NETWORK_TIERS` were defined late in the notebook but used earlier
+4. **Visualization dependencies** - Cells referenced columns that didn't exist yet
+
+**Changes Made:**
+- Moved `KPI_DEFINITIONS`, `REGION_INFO`, `NETWORK_TIERS`, and `RULE_FEATURES` to the IVI scoring cell (cell 22)
+- Added segmentation logic (`IVI_RISK`, `SIZE_CLASS`, `PROFIT_CLASS`, `SEGMENT`) directly in the IVI scoring cell
+- Added `IVI_SCORE_ML`, `IVI_SCORE_RULE`, `IVI_SCORE_RULE_NL` columns for compatibility
+- Added defensive checks (`if 'column' in df.columns`) to prevent errors
+- Fixed `analyze_client` and `visualize_client_analysis` functions to handle missing keys gracefully
+
+**Key Learning:** In notebooks, ensure variables are defined before they are used, even if cells can be run out of order. Always add defensive checks for column existence.
+
+---
+
+### Small Contractor Filtering (Feb 2026)
+
+**Problem:** IVI score distribution was bimodal (clustered around 0 and 100) because:
+1. Small contractors (<15 members) have high variance in metrics
+2. They constitute majority of contracts but small portion of premium
+3. Model easily predicts them as "will churn" or "will stay" with high confidence
+
+**Solution:** Filter out contracts with <15 members before modeling
+
+**Impact Analysis (before removing small contractors):**
+- ~85% of contracts were <15 members
+- They represented ~10% of total premium
+- Removal gives better IVI score distribution and business relevance
+
+**Contract Dynamics Analysis Added:**
+- Churned contracts (2022 only): Analyzed size, region, premium
+- New contracts (2023 only): Same analysis
+- Retained contracts (both years): Baseline comparison
+
+---
+
+## CRITICAL DATA CAVEATS
+
+### 1. Data Imbalance (SEVERE)
+- **Retention Rate: 15%** (9,892 contracts retained)
+- **Churn Rate: 85%** (55,887 contracts churned)
+- This is a highly imbalanced classification problem
+- **Impact:** Naive models will predict "churn" for everything and get 85% accuracy
+- **Mitigation Strategies:**
+  - Use `class_weight='balanced'` in models
+  - Use SMOTE or other oversampling techniques
+  - Use appropriate metrics: AUC-ROC, Precision-Recall AUC, F1-score
+  - Stratified train/test splits
+
+### 2. Limited Temporal Data (2 Years Only)
+- **Available:** 2022 and 2023 contract periods only
+- **Original assumption (wrong):** 3 years (2021-2023)
+- **Impact:** Cannot do Year 1-2 features -> Year 3 validation as originally planned
+- **Approach:** Use 2022 features to predict 2023 retention
+- **Limitation:** No true out-of-time validation set
+
+### 3. Date Field Confusion
+- `CONT_YYMM`: Contract period (2022-2023) - NOT actual service dates
+- `INCUR_DATE_FROM`: Actual service dates (2023-2025) - extends beyond contract period
+- `CRT_DATE` (Calls): Actual call dates (2021-2025)
+- Claims data shows services in 2023-2025 but tied to 2022-2023 contracts
+
+### 4. Segmentation Considerations
+- IVI score alone is insufficient for segmentation
+- Need multi-dimensional segmentation considering:
+  - Contract size (small vs large)
+  - Industry/sector (if available)
+  - Loss ratio thresholds
+  - Premium tier
+- Risk that model segments by "easy to predict" rather than "business relevant"
+
+---
+
+---
+
+## IVI ML Model Approach (03_IVI_ML_Model.ipynb)
+
+### Three-Phase Architecture
+
+**Phase 1: Baseline Gradient Boosting**
+- LightGBM classifier predicting retention (2022 -> 2023)
+- `scale_pos_weight` to handle 85/15 class imbalance
+- IVI Score = Retention Probability * 100
+
+**Phase 2: SHAP Decomposition**
+- Extract H, E, U sub-scores from SHAP values
+- Group features by dimension (Health, Experience, Utilization)
+- Normalize to 0-100 scale for interpretability
+
+**Phase 3: Multi-Dimensional Segmentation**
+- NOT just IVI score - combine with business metrics
+- Segment by: IVI Risk + Contract Size + Profitability
+- Actionable recommendations per segment
+
+### Handling Class Imbalance
+
+**Problem:** 85% churn, 15% retained - naive model gets 85% accuracy by always predicting churn.
+
+**Solutions Implemented:**
+1. `scale_pos_weight = neg_count / pos_count` in LightGBM
+2. Stratified train/test split to maintain class proportions
+3. Focus on AUC-ROC and Average Precision (not accuracy)
+4. Lift analysis to validate business value
+
+### Feature Groups
+
+```python
+FEATURE_GROUPS = {
+    'H_HEALTH': ['MEMBERS_WITH_CLAIMS', 'UNIQUE_DIAGNOSES', 'UTILIZATION_RATE', ...],
+    'E_EXPERIENCE': ['TOTAL_CALLS', 'APPROVAL_RATE', 'AVG_RESOLUTION_DAYS', ...],
+    'U_UTILIZATION': ['LOSS_RATIO', 'COST_PER_MEMBER', 'EARNED_PREMIUM', ...],
+    'DEMOGRAPHICS': ['TOTAL_MEMBERS', 'MALE_RATIO', 'NATIONALITY_COUNT', ...],
+    'SEASONAL': ['Q1_CLAIMS', 'Q2_CLAIMS', 'QUARTER_CONCENTRATION', ...],
+}
+```
+
+### Segmentation Logic
+
+```
+IVI Risk: HIGH (< 33rd percentile), MODERATE (33-67), LOW (> 67th)
+Size: LARGE (>= median members), SMALL (< median)
+Profitability: PROFITABLE (loss_ratio <= 1), UNPROFITABLE (> 1)
+
+Combined Segment = IVI_RISK + SIZE + PROFITABILITY
+Example: HIGH_RISK_LARGE_UNPROFITABLE -> CRITICAL priority
+```
+
+---
+
 ## Data Loading Pipeline
 
 ### Problem
@@ -191,10 +362,108 @@ result = (
 
 ## Next Steps
 
-- [ ] Develop IVI scoring model using `contract_level.parquet`
+- [ ] Develop IVI scoring model using `contract_year_level.parquet`
 - [x] Analyze health patterns by nationality using dimension tables
-- [ ] Build retention prediction model
+- [x] Build temporal feature engineering pipeline
+- [x] Define retention target variable
+- [ ] Train ML model to learn non-linear IVI relationships
 - [ ] Create visualization dashboard
+
+---
+
+## 2026-02-03: Data Analysis and Temporal Feature Engineering
+
+### Key Discovery: Date Fields in Data
+
+The data has multiple date concepts that were initially confusing:
+
+| Field | Meaning | Date Range |
+|-------|---------|------------|
+| `CONT_YYMM` | Contract period (policy active) | 2022-2023 |
+| `INCUR_DATE_FROM` | When service was used | 2023-2025 |
+| `T_PERIOD` | When claim was processed | 2023-2025 |
+| `CRT_DATE` (Calls) | Actual call date | **2021-2025** |
+
+**Insight:** The calls data has the longest history (2021-2025), while other data is tied to 2022-2023 contract periods.
+
+### Retention Analysis
+
+Analyzed contract retention from 2022 to 2023:
+
+| Metric | Count | Rate |
+|--------|-------|------|
+| Contracts in 2022 | 65,779 | - |
+| Contracts in 2023 | 77,817 | - |
+| Retained (both years) | 9,892 | 15.0% |
+| Churned (2022 only) | 55,887 | 85.0% |
+| New in 2023 | 67,925 | - |
+
+**Note:** High churn rate (85%) - this is the target we want to predict and reduce.
+
+### New Output: Contract-Year Level Data
+
+Created `contract_year_level.parquet` with:
+
+**Features by Category:**
+- **Member**: TOTAL_MEMBERS, MALE_RATIO, NATIONALITY_COUNT, YEAR_COVERAGE
+- **Claims Volume**: CLAIM_LINES, UNIQUE_CLAIMS, MEMBERS_WITH_CLAIMS
+- **Claims Cost**: TOTAL_BILLED, AVG_CLAIM_AMOUNT, MAX_CLAIM_AMOUNT, P90_CLAIM_AMOUNT
+- **Claims Derived**: LOSS_RATIO, COST_PER_MEMBER, COST_PER_UTILIZER, UTILIZATION_RATE
+- **Experience**: TOTAL_CALLS, CALLS_PER_MEMBER, AVG_RESOLUTION_DAYS
+- **Preauth**: PREAUTH_EPISODES, APPROVAL_RATE, REJECTION_RATE
+- **Seasonal**: Q1-Q4_CLAIMS, Q1-Q4_CALLS, QUARTER_CONCENTRATION
+- **Engagement**: ACTIVE_MONTHS, WEEKEND_CALLS, WEEKDAY_CALLS
+- **Target**: RETAINED_NEXT_YEAR (1=retained, 0=churned for 2022 contracts)
+
+### ML Approach for Non-Linear IVI
+
+**Problem:** Linear weighted averages of H, E, U dimensions don't capture the reality that one bad dimension can sink a client.
+
+**Solution:** Train a model to predict retention, let it learn non-linear relationships:
+1. Use 2022 features as X
+2. Use RETAINED_NEXT_YEAR as y (binary target)
+3. Model learns: "low U + low E = disaster" automatically
+4. IVI Score = model.predict_proba() * 100
+5. Use SHAP to decompose into H, E, U contributions
+
+**Benefits:**
+- Data-driven non-linearity
+- Automatic feature interactions
+- Validated on real outcomes
+- Interpretable via SHAP
+
+### 2026-02-03: Non-Linear IVI Aggregation + ML Hygiene Fixes (Notebook 03)
+
+#### Issue 1: `LOSS_RATIO` was miscomputed (premium denominator problem)
+- In `contract_year_level.parquet`, `EARNED_PREMIUM` behaves like **exposure** (often ~1), not monetary premium.
+- The original `LOSS_RATIO = TOTAL_BILLED / EARNED_PREMIUM` produces extreme values (2022 median ~0, but 95th percentile ~11k).
+- Practical fix (applied in `notebooks/03_IVI_ML_Model.ipynb`): recompute:
+  - `LOSS_RATIO = TOTAL_BILLED / WRITTEN_PREMIUM` (safe divide)
+  - This yields sensible distribution (2022: q95 ~0.87, q99 ~2.62).
+
+#### Issue 2: Early stopping leakage
+- The baseline LightGBM training was using the **test set** as the early-stopping evaluation set.
+- Fix: split 2022 into **train/validation/test**.
+  - Early stopping + probability calibration on validation set
+  - Final metrics reported on the held-out test set
+
+#### Issue 3: IVI aggregation was too compensatory (weakest-link requirement)
+- Even with ML-driven retention probability, we want IVI to drop when **any core dimension** (H/E/U) is weak.
+- Added a rule-based H/E/U scoring path:
+  - Convert selected KPIs into **percentile scores** via ECDF using the 2022 distribution
+  - Aggregate into `H_SCORE_RULE`, `E_SCORE_RULE`, `U_SCORE_RULE` (0–100)
+- Added a **non-linear** aggregator:
+  - Base: power mean across H/E/U with \(p=-2\) (more penalty than arithmetic mean; tends toward min as \(p\\to-\\infty\))
+  - Floor penalty: if `min(H,E,U) < floor`, apply \( (min/floor)^{\\gamma} \)
+- Added a hybrid final IVI:
+  - `IVI_SCORE_HYBRID` = geometric mean of `IVI_SCORE_ML` and `IVI_SCORE_RULE_NL`
+
+#### Outputs
+- Saved a model bundle with calibration + metadata: `ivi_model_bundle.joblib`
+- Saved IVI scores:
+  - 2022 (labelled): `ivi_scores_segments_2022.parquet`
+  - 2023 (forward scoring): `ivi_scores_forward_2023.parquet`
+  - All years: `ivi_scores_all_years.parquet`
 
 ---
 
@@ -266,3 +535,71 @@ Creative business insights and strategic recommendations for the IVI initiative.
 | STAR CLIENTS | Premium service, early renewal | 95%+ retention |
 | HEALTHY | Standard management | Maintain <85% loss ratio |
 | MONITOR | Automated tracking | Trend toward target |
+
+---
+
+## 2026-02-03: IVI Model Simplification & Region/Network Features
+
+### Changes Made
+
+#### 1. Removed Calibration/Sigmoid Transformations
+**Problem:** The Platt scaling calibration + logit transforms were compressing the IVI score range, making it harder to interpret.
+
+**Solution:** 
+- Removed the `calibrator` and `_logit` function
+- Use LightGBM's direct probability output (already well-calibrated with proper training)
+- IVI_SCORE_ML = model.predict_proba() * 100
+
+#### 2. Simplified IVI Scoring Formula
+**Old Approach:**
+- Power mean with p=-2 (complex, unintuitive)
+- Floor penalty with gamma exponent
+- Geometric mean of ML + rule-based scores
+
+**New Approach:**
+- Rule-based H/E/U scores: Simple ECDF percentile scoring (0-100)
+- IVI_SCORE_RULE = Weighted average: H(30%) + E(30%) + U(40%)
+- Final IVI = 50% ML Score + 50% Rule-based Score
+- Clean 0-100 range, easy to explain to business stakeholders
+
+#### 3. Added Region/Network Features to KPI Definitions
+**New KPI dimension "R" (Region/Network):**
+```python
+'R': [
+    ('REGION_COUNT', True, 'Region Coverage', 'Higher = broader coverage'),
+    ('NETWORK_COUNT_USED', True, 'Network Diversity', 'Higher = better access'),
+    ('PRACTICE_TYPE_COUNT', True, 'Practice Types', 'Hospital/Clinic/Pharmacy'),
+    ('REGION_CONCENTRATION', False, 'Region Concentration', 'Lower = less risk'),
+]
+```
+
+**Added Reference Data:**
+- `REGION_INFO`: Provider density and population info per region
+- `NETWORK_TIERS`: Network tier classification (NW1=Premium to NW7=Basic)
+
+#### 4. Enhanced Client Analysis with Regional Insights
+The `analyze_client()` function now includes:
+- Primary region and network identification
+- Provider density context for the region
+- Network tier information
+- Regional concentration risk assessment
+- Actionable insights based on region/network patterns
+
+#### 5. Updated Recommendations Framework
+Added region/network specific recommendations:
+- Single-region clients: Telemedicine recommendations
+- Low-tier network clients: Network upgrade suggestions
+- High regional concentration: Business continuity considerations
+- Provider density awareness for service quality
+
+### Why These Changes Matter
+
+1. **Interpretability:** Stakeholders can easily understand "IVI = 73 means 73% health index" 
+2. **Actionability:** Region/network insights provide concrete intervention points
+3. **Explainability:** Client analysis now shows which regions/networks are driving issues
+4. **Business Value:** Network/region recommendations can directly address access-related rejections
+
+### Model Output Changes
+- Model bundle no longer includes `calibrator` or `calibration_method`
+- Added `weights_heu`, `region_info`, `network_tiers`, `kpi_definitions` to bundle
+- IVI score range is now natural 0-100 (was compressed before)
