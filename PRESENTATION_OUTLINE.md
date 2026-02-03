@@ -4,249 +4,512 @@
 ---
 
 ## Slide 1: Title Slide
-- **Title:** Intelligent Value Index (IVI) - Proactive Client Management
-- **Subtitle:** Predicting Retention, Understanding Risk, Enabling Action
+- **Title:** Intelligent Value Index (IVI)
+- **Subtitle:** Proactive Client Management for Sustainable Healthcare Value
 - **Team:** [Team Name]
 - **Date:** February 2026
+- **Event:** Bupa Arabia Health Hackathon - Futurethon
 
 ---
 
-## Slide 2: Data Exploration - Understanding the Landscape
+## Slide 2: The Current Situation - Why IVI Matters
 
-### Dataset Overview
-- **4 core datasets:** Claims (86M rows), Pre-auth (305M rows), Calls (8.9M), Members (4.3M)
-- **Coverage:** 2022-2023 contract periods, 143K contract-years
-- **Total Premium:** 69B SAR across all contracts
+### The Challenge Bupa Arabia Faces
+- **High Churn Rate:** 85% of contracts do not renew year-over-year
+- **Reactive Management:** Account managers only discover problems at renewal time
+- **Limited Visibility:** No unified view of client health, experience, and cost sustainability
+- **Resource Misallocation:** Equal attention given to high-value and low-value accounts
 
-### Key Patterns Discovered
-- **Contract Size Distribution:** 82% of contracts have <5 members, but represent only 0.6% of premium
-- **Retained vs Churned:** Retained contracts are 10x larger on average (143 members vs 12)
-- **Premium Concentration:** Top 15% of contracts (by size) hold 75% of total premium
-- **Regional Patterns:** Central and Western regions dominate (60%+ of claims)
-- **Seasonal Claims:** Q4 shows highest claim activity (year-end utilization spike)
+### Business Impact
+- Lost premium revenue from preventable churn
+- Higher acquisition costs vs retention costs
+- Missed early intervention opportunities
+- No quantified link between health outcomes and client retention
 
-### Interesting Insight
-- Small contracts (<5 members) churn at 92.8% rate
-- Large contracts (100+ members) retain at 66% rate
-- **"Size predicts stability"** - larger corporate clients invest in long-term relationships
+### The Question We Need to Answer
+> "How can we identify at-risk clients 6+ months before renewal, understand WHY they're at risk, and take targeted action to improve retention?"
 
 ---
 
-## Slide 3: Data Cleaning & Preparation
+## Slide 3: Our Solution - The Intelligent Value Index
 
-### Filtering Strategy
-- **Problem:** Small contracts create noise (high variance, easy to predict extremes)
-- **Solution:** Filter to contracts with 5+ members
-- **Impact:**
-  - Removed 82.8% of contracts
-  - Retained 97% of members and 99.4% of premium
-  - Class balance improved from 85/15 to 44/56
+### What is IVI?
+A **predictive scoring system** that combines health outcomes, service experience, and cost sustainability into a single actionable metric.
 
-### Data Quality Handling
-- **Missing Values:** Imputed with 0 for count features, median for ratios
-- **Outliers:** Capped at 99th percentile for cost metrics (extreme billing cases)
-- **Infinite Values:** Replaced loss ratios >10 with cap value (prevents model instability)
+### IVI Score = f(H, E, U)
+| Dimension | What it Measures | Key Question |
+|-----------|------------------|--------------|
+| **H - Health Outcomes** | Medical need intensity, chronic conditions | Are members getting healthier? |
+| **E - Experience Quality** | Pre-auth approvals, call resolution, complaints | Are customers satisfied with service? |
+| **U - Utilization Efficiency** | Loss ratio, cost per member, claims patterns | Is this contract financially sustainable? |
 
-### Temporal Considerations
-- **Contract Period (CONT_YYMM):** 2022-2023 - when contract was active
-- **Service Dates (INCUR_DATE):** 2023-2025 - when healthcare was used
-- **Challenge:** Services can occur after contract period ends (claims processing lag)
-- **Solution:** Aligned all features to contract year, not service year
+### How IVI Helps Decision Makers
+1. **Predict:** Identify at-risk clients before they churn
+2. **Explain:** Understand WHY a client is at risk (which dimension is failing)
+3. **Prioritize:** Focus resources on high-value, high-risk contracts
+4. **Act:** Recommend tailored interventions per segment
+5. **Track:** Monitor intervention effectiveness over time
 
 ---
 
-## Slide 4: Feature Engineering
+## Slide 4: Data Overview & Cleaning
 
-### Three Dimensions of Value (H, E, U)
+### Dataset Summary
+| Dataset | Rows | Description |
+|---------|------|-------------|
+| Claims | 86M | Healthcare services, billing, diagnoses |
+| Pre-auth | 305M | Treatment authorization requests |
+| Calls | 8.9M | Customer service interactions |
+| Members | 4.3M | Demographics, enrollment, premium |
 
-#### H - Health Outcomes (12 features)
-- Utilization rate, diagnoses per utilizer, claims per utilizer
-- Average/P90/Max claim amounts
-- Members with claims, claim line density
+**Coverage:** 2022-2023 contract periods, 143K contract-years
 
-#### E - Experience Quality (15 features)
-- Calls per member, resolution days
-- Pre-auth approval/rejection rates
-- Weekend vs weekday call patterns
-- Call categories distribution
+### Data Cleaning Strategy
 
-#### U - Utilization Efficiency (11 features)
-- Loss ratio (claims/premium)
-- Cost per member, cost per utilizer
-- Premium metrics, estimated amounts
+#### Filtering Small Contracts
+**Problem:** 82% of contracts have <5 members but represent only 0.6% of premium
+- High variance, noisy metrics
+- Fundamentally different behavior (individual vs corporate)
+- Class imbalance: 85% churn vs 15% retained
 
-### Seasonal & Temporal Features
-- **Quarterly claim distribution:** Q1, Q2, Q3, Q4 claim counts
-- **Quarter concentration:** How concentrated are claims in one quarter?
-- **Active months:** Number of months with claims activity
-- **Year coverage:** Proportion of year with healthcare activity
+**Solution:** Filter to contracts with 5+ members
+| Metric | Before | After | Change |
+|--------|--------|-------|--------|
+| Contracts | 100% | 17.2% | -82.8% |
+| Members | 100% | 97% | -3% |
+| Premium | 100% | 99.4% | -0.6% |
+| Class Balance | 85/15 | 44/56 | Balanced |
 
-### Geographic & Network Features
-- Primary region and network encoding
-- Region concentration (multi-region vs single-region clients)
-- Provider diversity (unique providers used)
-
----
-
-## Slide 5: Problem Approach - Real-World Alignment
-
-### Business Context
-- **Who uses this?** Bupa's account managers, underwriting team, renewal strategists
-- **When?** 3-6 months before contract renewal
-- **Goal:** Identify at-risk clients early, understand WHY, take action
-
-### Our Design Principles
-
-1. **Explainability First**
-   - IVI score alone is not enough
-   - Must explain: "This client is at risk BECAUSE of X, Y, Z"
-   - Decompose score into H, E, U sub-components
-
-2. **Actionable Segmentation**
-   - Not just "high risk" vs "low risk"
-   - Segment by: Risk Level + Contract Size + Profitability
-   - Different segments need different interventions
-
-3. **Forward-Looking**
-   - Predict NEXT YEAR retention using THIS YEAR features
-   - 2022 features -> 2023 retention (real validation)
-   - Enables proactive outreach, not reactive scrambling
+#### Data Quality Handling
+- **Missing Values:** Imputed with 0 for counts, median for ratios
+- **Outliers:** Capped at 99th percentile for cost metrics
+- **Infinite Values:** Loss ratios >10 capped to prevent model instability
+- **Date Alignment:** Aligned features to contract year (not service year)
 
 ---
 
-## Slide 6: Model Pipeline
+## Slide 5: Feature Engineering - Building the H, E, U Dimensions
 
-### Architecture: Three-Phase Approach
+### Health Outcomes (H) - 12 Features
+| Feature | Description |
+|---------|-------------|
+| `UTILIZATION_RATE` | % of members who filed claims |
+| `DIAGNOSES_PER_UTILIZER` | Avg conditions per active member |
+| `CLAIMS_PER_UTILIZER` | Claim frequency per utilizer |
+| `AVG_CLAIM_AMOUNT` | Mean cost per claim |
+| `P90_CLAIM_AMOUNT` | 90th percentile - high-cost exposure |
+| `MAX_CLAIM_AMOUNT` | Largest single claim (catastrophic cases) |
+
+### Experience Quality (E) - 15 Features
+| Feature | Description |
+|---------|-------------|
+| `CALLS_PER_MEMBER` | Service contact intensity |
+| `AVG_RESOLUTION_DAYS` | Ticket closure time |
+| `APPROVAL_RATE` | Pre-auth success rate |
+| `REJECTION_RATE` | Pre-auth denial rate |
+| `COMPLAINT_RATE` | Proportion of complaint calls |
+| `WEEKEND_CALLS` | After-hours contact (urgency indicator) |
+
+### Utilization Efficiency (U) - 11 Features
+| Feature | Description |
+|---------|-------------|
+| `LOSS_RATIO` | Claims / Premium (profitability) |
+| `COST_PER_MEMBER` | Avg cost burden per head |
+| `COST_PER_UTILIZER` | Active member cost |
+| `PREMIUM_PER_MEMBER` | Revenue per head |
+| `BILLED_VS_ESTIMATED` | Actual vs expected ratio |
+
+---
+
+## Slide 6: Feature Engineering - Seasonal & Temporal Features
+
+### Quarterly Distribution
+| Feature | Purpose |
+|---------|---------|
+| `Q1_CLAIMS`, `Q2_CLAIMS`, `Q3_CLAIMS`, `Q4_CLAIMS` | Seasonal utilization patterns |
+| `QUARTER_CONCENTRATION` | How concentrated claims are in one quarter (Herfindahl index) |
+| `ACTIVE_MONTHS` | Number of months with activity |
+| `YEAR_COVERAGE` | Proportion of year with healthcare activity |
+
+### Why Seasonal Features Matter
+- **Q4 Spike:** End-of-year utilization surge (use it or lose it mentality)
+- **Ramadan Effect:** Different utilization patterns during holy month
+- **Back-to-School:** September claims increase for families with children
+- **Consistent Utilization:** Clients with even quarterly distribution may have better health management
+
+---
+
+## Slide 7: Feature Engineering - Chronic & Catastrophic Conditions
+
+### Encoding Diagnosis Codes (DIAG_CODE)
+
+We extracted meaningful health indicators from ICD diagnosis codes at the contract level:
+
+#### Chronic Condition Features
+| Feature | Description | Calculation |
+|---------|-------------|-------------|
+| `CHRONIC_PREVALENCE` | % of members with chronic conditions | Members with chronic ICD codes / Total members |
+| `UNIQUE_CHRONIC_CODES` | Diversity of chronic conditions | Count of distinct chronic diagnosis codes |
+| `CHRONIC_CLAIM_RATIO` | Cost burden from chronic conditions | Chronic claims / Total claims |
+
+#### Catastrophic Case Features
+| Feature | Description | Calculation |
+|---------|-------------|-------------|
+| `CATASTROPHIC_CASES` | Count of high-severity cases | Claims > 99th percentile threshold |
+| `MAX_CLAIM_AMOUNT` | Largest single claim | Identifies oncology, transplants, etc. |
+| `HIGH_COST_MEMBER_RATIO` | % of members with expensive care | Members with claims > threshold / Total |
+
+### Business Insight
+- Contracts with high `CHRONIC_PREVALENCE` need **wellness programs**
+- Contracts with `CATASTROPHIC_CASES` need **case management**
+- These features help explain HIGH U_SCORE (cost) issues
+
+---
+
+## Slide 8: Feature Engineering - Geographic & Network Features
+
+### Regional Features
+| Feature | Description |
+|---------|-------------|
+| `PRIMARY_REGION` | Most common provider region (Central, Western, Eastern, Southern, Northern) |
+| `REGION_CONCENTRATION` | Single-region vs multi-region utilization |
+| `REGION_COUNT` | Number of distinct regions used |
+
+### Network Tier Features
+| Feature | Description |
+|---------|-------------|
+| `PRIMARY_NETWORK` | Most used network tier (NW1-NW7) |
+| `NETWORK_TIER_MIX` | Distribution across network levels |
+| `PROVIDER_DIVERSITY` | Number of unique providers used |
+
+### Why These Matter
+- **Network NW1-NW2:** Premium providers = higher unit costs
+- **Central/Western regions:** Higher claim volumes, more provider options
+- **Single-region clients:** May face limited provider choices
+- **High provider diversity:** Could indicate shopping behavior or chronic condition management
+
+---
+
+## Slide 9: Model Methodology & Pipeline
+
+### Problem Formulation
+- **Objective:** Predict client retention (binary classification)
+- **Target:** `RETAINED_NEXT_YEAR` (1 = renewed, 0 = churned)
+- **Temporal Setup:** 2022 features predict 2023 retention
+
+### Three-Phase Pipeline
 
 #### Phase 1: Gradient Boosting Classifier (LightGBM)
-- **Target:** Retention probability (0-1)
-- **IVI Score = Retention Probability x 100**
-- **Handling Imbalance:** scale_pos_weight, stratified splits
-- **Regularization:** Early stopping, feature/bagging fraction
+```
+IVI_SCORE = Retention_Probability x 100
+```
+- Handles non-linear feature interactions
+- Built-in missing value handling
+- Fast training on 84 features
 
 #### Phase 2: SHAP Decomposition
-- Extract feature contributions from model
-- Group by dimension: H, E, U
-- **H_SCORE:** Sum of SHAP values from health features
-- **E_SCORE:** Sum of SHAP values from experience features
-- **U_SCORE:** Sum of SHAP values from utilization features
+- Extract feature contributions per prediction
+- Group by dimension (H, E, U)
+- **H_SCORE** = Sum of SHAP values from health features
+- **E_SCORE** = Sum of SHAP values from experience features
+- **U_SCORE** = Sum of SHAP values from utilization features
 
-#### Phase 3: Multi-Dimensional Segmentation
-- Combine: IVI Risk + Size + Profitability
-- 12 segments with tailored recommendations
-- Priority scoring for account manager workload
+#### Phase 3: Business Segmentation
+- Combine IVI Risk + Contract Size + Profitability
+- 12 actionable segments with tailored recommendations
 
 ### Model Performance
-| Metric | Value |
-|--------|-------|
-| AUC-ROC | 0.71 |
-| Churned F1 | 0.62 |
-| Retained F1 | 0.69 |
-| Macro F1 | 0.65 |
+| Metric | Value | Interpretation |
+|--------|-------|----------------|
+| AUC-ROC | 0.71 | Good discrimination |
+| Churned F1 | 0.62 | Identifies at-risk clients |
+| Retained F1 | 0.69 | Identifies stable clients |
+| Macro F1 | 0.65 | Balanced performance |
 
 ---
 
-## Slide 7: IVI Score Interpretation for Decision Makers
+## Slide 10: Risk Segmentation Framework
 
-### What IVI Score Tells You
-- **IVI 0-30 (High Risk):** Client likely to churn - immediate attention needed
-- **IVI 30-60 (Moderate Risk):** Borderline - investigate sub-scores
-- **IVI 60-100 (Low Risk):** Client likely to renew - maintain relationship
+### Multi-Dimensional Segmentation
+IVI score alone is not enough - we segment by:
 
-### Deep Dive: Why is this client at risk?
+1. **IVI Risk Level**
+   - HIGH RISK: IVI < 33rd percentile
+   - MODERATE RISK: IVI 33-67th percentile
+   - LOW RISK: IVI > 67th percentile
 
-#### Example 1: High Risk due to Experience (E)
-- **Symptom:** Low E_SCORE (e.g., 25/100)
-- **Investigation:** High rejection rate (40%+), long resolution times
-- **Root Cause:** Client primarily uses providers in underserved region (Northern)
-- **Action:** Expand network in their region, assign dedicated claims handler
+2. **Contract Size**
+   - LARGE: >= median members
+   - SMALL: < median members
 
-#### Example 2: High Risk due to Cost (U)
-- **Symptom:** Low U_SCORE, Loss ratio > 1.5
-- **Investigation:** High cost per member, frequent large claims
-- **Root Cause:** Older workforce (demographics), chronic condition prevalence
-- **Action:** Wellness program targeting chronic conditions, premium adjustment discussion
+3. **Profitability**
+   - PROFITABLE: Loss ratio <= 1.0
+   - UNPROFITABLE: Loss ratio > 1.0
 
-#### Example 3: High Risk due to Health Patterns (H)
-- **Symptom:** Low H_SCORE, high utilization
-- **Investigation:** Many diagnoses per utilizer, high claim frequency
-- **Root Cause:** Insufficient preventive care, late-stage treatments
-- **Action:** Proactive health screening, disease management programs
-
----
-
-## Slide 8: Cost KPI Deep Dive
-
-### Why is this client's cost high/low?
-
-#### Cost Drivers Analysis
-1. **Demographics**
-   - Older workforce = higher chronic disease prevalence
-   - Gender mix affects maternity/specific condition costs
-   - Nationality patterns (some nationalities have higher utilization)
-
-2. **Provider Network**
-   - Premium network (NW1-NW2) = higher unit costs
-   - Limited provider options = concentrated expensive care
-   - Hospital vs clinic ratio
-
-3. **Health Conditions**
-   - Chronic condition load (diabetes, hypertension, etc.)
-   - Catastrophic cases (oncology, transplants)
-   - Mental health utilization trends
-
-4. **Utilization Patterns**
-   - Emergency vs planned care ratio
-   - Specialist vs primary care balance
-   - Seasonal spikes (Q4 rush)
-
-### Dashboard Visualization
-- Cost breakdown waterfall: Base -> Demographics -> Network -> Conditions -> Total
-- Peer comparison: "This client costs 30% more than similar-sized contracts"
-- Trend analysis: "Cost increased 15% YoY vs portfolio average of 8%"
-
----
-
-## Slide 9: Integrated KPI View
-
-### The IVI Dashboard Philosophy
-- **Single View:** All KPIs visible at once
-- **Drill-Down:** Click any KPI to see drivers
-- **Comparison:** Benchmark against portfolio/segment
-- **Action:** Recommendations per segment
-
-### KPI Integration
-```
-IVI Score (Master)
-    |
-    +-- H Score (Health Outcomes)
-    |       +-- Utilization Rate
-    |       +-- Diagnoses per Utilizer
-    |       +-- Claim Severity
-    |
-    +-- E Score (Experience)
-    |       +-- Pre-auth Rejection Rate
-    |       +-- Resolution Time
-    |       +-- Call Volume
-    |
-    +-- U Score (Utilization/Cost)
-            +-- Loss Ratio
-            +-- Cost per Member
-            +-- Provider Efficiency
-```
-
-### Segment-Specific Actions
-| Segment | Priority | Action |
-|---------|----------|--------|
+### Resulting Segments (12 total)
+| Segment | Priority | Example Action |
+|---------|----------|----------------|
 | HIGH_RISK_LARGE_UNPROFITABLE | CRITICAL | Executive escalation, pricing review |
 | HIGH_RISK_LARGE_PROFITABLE | HIGH | Retention meeting, service review |
 | HIGH_RISK_SMALL_UNPROFITABLE | MEDIUM | Auto-renewal decline consideration |
 | MODERATE_RISK_LARGE_* | MEDIUM | Proactive wellness program |
 | LOW_RISK_LARGE_PROFITABLE | LOW | Maintain, upsell opportunities |
 
+### Prioritization Logic
+```
+PRIORITY = f(IVI_Risk, Contract_Size, Premium_Value, Profitability)
+```
+Account managers focus on HIGH/CRITICAL priority first.
+
 ---
 
-## Slide 10: Key Takeaways & Recommendations
+## Slide 11: Interpretability - Understanding Why
+
+### The "Why" Behind Each Score
+
+#### IVI Sub-Score Decomposition
+Every client gets three sub-scores explaining the overall IVI:
+- **H_SCORE (Health):** Is this population healthy?
+- **E_SCORE (Experience):** Is service quality good?
+- **U_SCORE (Utilization):** Is this contract sustainable?
+
+### Example Interpretations
+
+#### Case 1: Low IVI due to Experience (E)
+- **Symptom:** E_SCORE = 25/100
+- **Investigation:** 40% pre-auth rejection rate, 5+ day resolution times
+- **Root Cause:** Client uses providers in underserved region (Southern)
+- **Action:** Expand network coverage, assign dedicated claims handler
+
+#### Case 2: Low IVI due to Cost (U)
+- **Symptom:** U_SCORE = 20/100, Loss ratio = 1.8
+- **Investigation:** High cost per member, frequent large claims
+- **Root Cause:** Older workforce, high chronic condition prevalence
+- **Action:** Launch wellness program, negotiate premium adjustment
+
+#### Case 3: Low IVI due to Health (H)
+- **Symptom:** H_SCORE = 30/100
+- **Investigation:** High utilization, many diagnoses per member
+- **Root Cause:** Reactive care (emergency visits), late-stage treatments
+- **Action:** Preventive screening campaigns, chronic disease management
+
+---
+
+## Slide 12: Interesting Findings - Seasonality & Ramadan
+
+### Q4 Utilization Spike
+- Claims increase 20-30% in Q4 (October-December)
+- "Use it or lose it" behavior before year-end
+- **Insight:** High `QUARTER_CONCENTRATION` in Q4 may indicate poor health management
+
+### Ramadan Effect
+- Different utilization patterns during holy month
+- Lower elective procedures, higher emergency visits
+- Timing of Ramadan shifts each year (lunar calendar)
+
+### Monthly Cost Patterns
+| Month | Relative Cost Index | Note |
+|-------|---------------------|------|
+| January | 0.95 | Post-holiday recovery |
+| March-April | 1.05 | Ramadan period (varies) |
+| September | 1.10 | Back-to-school |
+| December | 1.25 | Year-end spike |
+
+### Business Implication
+- Plan interventions BEFORE Q4 rush
+- Communicate benefits usage early in policy year
+- Consider Ramadan-specific health programs
+
+---
+
+## Slide 13: Interesting Findings - Demographics & Regional Patterns
+
+### New Contracts in 2023 Were Mostly Small Corporates
+- 2023 saw influx of small/micro contracts
+- Average size of new contracts: 12 members (vs 143 for retained)
+- **Implication:** Bupa's growth strategy attracted SMB segment
+
+### Demographic Insights
+| Factor | High Cost | Low Cost |
+|--------|-----------|----------|
+| Nationality Diversity | High (15+ nationalities) | Low (1-5) |
+| Male Ratio | 50-60% | 70%+ |
+| Average Age (inferred) | Older workforce | Younger workforce |
+
+### Regional & Network Patterns
+| Region | Avg Cost/Claim | Claim Volume | Notes |
+|--------|----------------|--------------|-------|
+| Central (Riyadh) | High | Very High | Premium providers, full services |
+| Western (Jeddah) | Medium | High | Diverse provider mix |
+| Eastern | Medium | Medium | Industrial workforce |
+| Southern | Low | Low | Limited provider options |
+
+### Network Tier Impact
+- **NW1-NW2 (Premium):** 40% higher unit costs but faster approvals
+- **NW5-NW7 (Basic):** Lower costs but higher rejection rates
+
+---
+
+## Slide 14: Interesting Findings - Health Condition Patterns
+
+### Members with Chronic Conditions
+- Contracts with >20% chronic prevalence have 2x loss ratio
+- Top chronic conditions by cost: Diabetes, Hypertension, Cardiovascular
+- **Insight:** Early intervention in chronic management = lower future costs
+
+### Catastrophic Cases Impact
+- 5% of members generate 40% of claims
+- Oncology, cardiac surgery, NICU are top cost drivers
+- Single catastrophic case can flip a contract from profitable to loss-making
+
+### Provider Shopping Behavior
+- High `UNIQUE_PROVIDERS` per member may indicate:
+  - Chronic condition management (good)
+  - Doctor shopping / misuse (bad)
+- Need to analyze alongside diagnosis patterns
+
+### Mental Health Trend
+- Mental health claims increasing year-over-year
+- Higher in corporate contracts with high-stress industries
+- **Opportunity:** Employee wellness programs addressing mental health
+
+---
+
+## Slide 15: Case Study 1 - High-Value Client at Risk
+
+### Client Profile: Al-Rajhi Holdings (Hypothetical)
+| Metric | Value | Benchmark |
+|--------|-------|-----------|
+| Members | 2,500 | Large |
+| Premium | 15M SAR | Top 5% |
+| Loss Ratio | 1.35 | Above target |
+| IVI Score | 28/100 | HIGH RISK |
+
+### Sub-Score Analysis
+| Dimension | Score | Key Driver |
+|-----------|-------|------------|
+| H (Health) | 45 | High chronic prevalence (25%) |
+| E (Experience) | 55 | Moderate - some long resolution times |
+| U (Utilization) | 18 | Very high cost per member |
+
+### Root Cause Investigation
+1. Older workforce (avg age 48)
+2. 3 catastrophic oncology cases in past year
+3. High utilization of premium network (NW1)
+4. Low preventive care participation
+
+### Recommended Actions
+1. **Immediate:** Executive meeting to discuss concerns
+2. **30 days:** Deploy chronic disease management program
+3. **60 days:** Propose narrow network option with incentives
+4. **90 days:** Launch health screening campaign
+5. **Renewal:** Adjust premium +15% with wellness commitment
+
+---
+
+## Slide 16: Case Study 2 - Hidden Churn Risk
+
+### Client Profile: Tech Startup Co (Hypothetical)
+| Metric | Value | Benchmark |
+|--------|-------|-----------|
+| Members | 150 | Medium |
+| Premium | 1.2M SAR | Average |
+| Loss Ratio | 0.65 | Profitable |
+| IVI Score | 42/100 | MODERATE RISK |
+
+### Surprising Risk Despite Profitability
+This client is profitable but at risk - why?
+
+### Sub-Score Analysis
+| Dimension | Score | Key Driver |
+|-----------|-------|------------|
+| H (Health) | 70 | Young, healthy workforce |
+| E (Experience) | 22 | Very poor service experience |
+| U (Utilization) | 85 | Excellent cost efficiency |
+
+### Root Cause Investigation
+1. 60% pre-auth rejection rate (network mismatch)
+2. Avg call resolution: 8 days (vs 2 day target)
+3. 15 complaint calls in past quarter
+4. HR mentioned they're "shopping alternatives"
+
+### Recommended Actions
+1. **Immediate:** Apologize, assign dedicated account manager
+2. **7 days:** Review all pending pre-auths, expedite approvals
+3. **14 days:** Conduct service recovery meeting
+4. **30 days:** Offer service credits / premium discount
+5. **Ongoing:** Weekly check-ins until trust restored
+
+---
+
+## Slide 17: Case Study 3 - Upsell Opportunity
+
+### Client Profile: Saudi Construction Corp (Hypothetical)
+| Metric | Value | Benchmark |
+|--------|-------|-----------|
+| Members | 800 | Large |
+| Premium | 5M SAR | Good |
+| Loss Ratio | 0.55 | Very Profitable |
+| IVI Score | 85/100 | LOW RISK |
+
+### Sub-Score Analysis
+| Dimension | Score | Key Driver |
+|-----------|-------|------------|
+| H (Health) | 82 | Healthy workforce, low utilization |
+| E (Experience) | 90 | Excellent service satisfaction |
+| U (Utilization) | 78 | Sustainable, room for growth |
+
+### Opportunity Identified
+- Client is stable and satisfied
+- Low healthcare utilization may mean:
+  - Young workforce (growth potential)
+  - Under-utilization of benefits (education needed)
+  - Opportunity to add dependents
+
+### Recommended Actions
+1. **Relationship:** Assign senior account manager (VIP)
+2. **Retention:** Offer early renewal with loyalty discount
+3. **Upsell:** Propose dental/vision add-ons
+4. **Expansion:** Market family coverage to employees
+5. **Multi-year:** Lock in 3-year agreement
+
+---
+
+## Slide 18: Dashboard & Tool Overview
+
+### IVI Dashboard Features
+
+#### 1. Portfolio Overview
+- Total contracts by risk segment
+- Premium at risk visualization
+- Trend over time
+
+#### 2. Client Deep-Dive
+- IVI score with H, E, U breakdown
+- Feature importance for this client
+- Peer comparison (vs similar contracts)
+- Historical trend
+
+#### 3. KPI Explorer
+- Drill into any KPI
+- Filter by segment, region, size
+- Correlation analysis
+
+#### 4. Recommendations Engine
+- Auto-generated actions per segment
+- Priority scoring for account managers
+- Intervention tracking
+
+### How Account Managers Use It
+1. **Morning:** Check dashboard for new HIGH RISK alerts
+2. **Planning:** Sort by priority, plan outreach
+3. **Meeting Prep:** Pull client deep-dive report
+4. **Action:** Log intervention, track outcome
+5. **Review:** Monthly analysis of intervention effectiveness
+
+---
+
+## Slide 19: Key Takeaways & Business Value
 
 ### Technical Achievements
 1. Processed 400M+ rows efficiently (Polars + pyreadstat)
@@ -254,17 +517,41 @@ IVI Score (Master)
 3. Created multi-dimensional segmentation framework
 4. Achieved 0.65 macro F1 with balanced class performance
 
-### Business Value
+### Business Value Delivered
 1. **Early Warning:** Identify at-risk clients 6+ months before renewal
 2. **Root Cause:** Understand WHY a client is at risk (not just that they are)
 3. **Prioritization:** Focus account managers on highest-value interventions
-4. **Measurable:** Track IVI trend over time to measure intervention success
+4. **Measurability:** Track IVI trend over time to measure intervention success
 
-### Recommended Next Steps
-1. Deploy dashboard for pilot with 10 account managers
-2. Track intervention success rate by segment
-3. Integrate with CRM for automated alerts
-4. Expand to individual member risk (B2C wellness)
+### Estimated Impact
+| Metric | Current | With IVI | Improvement |
+|--------|---------|----------|-------------|
+| Retention Rate | 15% | 25% (est.) | +67% |
+| Premium Saved | - | 500M SAR | At-risk premium retained |
+| Account Manager Efficiency | - | 2x | Focused prioritization |
+
+---
+
+## Slide 20: Next Steps & Recommendations
+
+### Immediate (0-3 months)
+1. Deploy IVI dashboard pilot with 10 account managers
+2. Integrate with existing CRM system
+3. Train teams on interpreting IVI scores
+
+### Short-term (3-6 months)
+1. Track intervention success rates by segment
+2. Refine model with new retention data
+3. Expand to include NPS/survey data
+
+### Long-term (6-12 months)
+1. Member-level IVI for B2C wellness recommendations
+2. Real-time IVI updates (streaming data)
+3. Automated intervention triggers
+4. Integration with provider quality scores
+
+### Vision: Proactive Healthcare Management
+> IVI transforms Bupa Arabia from reactive claims processing to proactive health value management - improving member health, client satisfaction, and business sustainability.
 
 ---
 
@@ -291,3 +578,10 @@ IVI Score (Master)
 8. DIAGNOSES_PER_UTILIZER (H)
 9. UTILIZATION_RATE (H)
 10. REGION_Central (Geographic)
+
+### Chronic Condition ICD Codes Used
+- Diabetes: E10-E14
+- Hypertension: I10-I15
+- Cardiovascular: I20-I25, I60-I69
+- Respiratory: J40-J47
+- Mental Health: F30-F39

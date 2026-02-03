@@ -603,3 +603,130 @@ Added region/network specific recommendations:
 - Model bundle no longer includes `calibrator` or `calibration_method`
 - Added `weights_heu`, `region_info`, `network_tiers`, `kpi_definitions` to bundle
 - IVI score range is now natural 0-100 (was compressed before)
+
+---
+
+## Dashboard Implementation (Feb 3, 2026)
+
+### Overview
+Implemented a full Streamlit dashboard for IVI visualization and analysis.
+
+### Dashboard Structure
+```
+dashboard/
+    app.py                  # Main entry point with navigation
+    pages/
+        portfolio.py        # Portfolio Overview page
+        client_dive.py      # Client Deep Dive page
+        segments.py         # Segment Analysis page
+        kpi_explorer.py     # KPI Explorer page
+    components/
+        charts.py           # Reusable Plotly chart components
+    utils/
+        data_loader.py      # Data loading with caching
+        recommendations.py  # Recommendation generation logic
+```
+
+### Features Implemented
+
+#### 1. Portfolio Overview
+- Key metrics: Total contracts, members, premium, avg IVI
+- IVI score distribution histogram with risk coloring
+- Risk tier pie chart
+- Segment heatmap (Risk x Size x Profitability)
+- At-risk contracts table (top 20 by premium)
+- Premium at risk breakdown by tier
+
+#### 2. Client Deep Dive
+- Contract search and selection
+- IVI gauge with 0-100 scale
+- H, E, U dimension panels with KPIs
+- Comparison vs benchmarks
+- Auto-generated recommendations based on KPI thresholds
+- Segment-specific action plans
+
+#### 3. Segment Analysis
+- Segment summary with priority levels
+- Segment comparison charts (premium, contracts, IVI vs Loss Ratio)
+- Risk tier distribution by segment
+- Detailed contract list with export option
+
+#### 4. KPI Explorer
+- KPI selection by dimension (H, E, U)
+- Distribution analysis with histograms and box plots
+- Correlation with IVI score
+- Segmentation breakdown
+- Top/bottom performer analysis
+
+### Technical Details
+- **Framework:** Streamlit
+- **Visualizations:** Plotly for interactive charts
+- **Data:** Polars for fast data loading
+- **Caching:** st.cache_data with 1-hour TTL
+- **Styling:** Custom CSS for Bupa branding (blue #003087)
+
+### Color Scheme
+- Primary (Bupa Blue): #003087
+- High Risk: #D64045 (red)
+- Moderate Risk: #FF6B35 (orange)
+- Low Risk: #2E8B57 (green)
+
+### Recommendation Logic
+Auto-generates recommendations based on:
+- Rejection rate > 25% -> Pre-auth handling issues
+- Resolution days > 10 -> Support quality issues
+- Calls per member > 0.35 -> High complaint volume
+- Loss ratio > 1.2 -> Unprofitable contract
+- Cost per member > 1.5x benchmark -> High cost client
+- Utilization > 75% -> High healthcare usage
+- Diagnoses per utilizer > 4 -> Chronic burden
+
+### Running the Dashboard
+```bash
+cd /workspace/dashboard
+streamlit run app.py --server.port 8501
+```
+
+### Data Dependencies
+- `/volume/data/models/ivi_scores_all_years.parquet` - Main IVI scores with features
+- `/volume/data/models/shap_subscores.parquet` - SHAP-based H, E, U subscores
+- `/volume/data/processed/contract_level.parquet` - Contract-level data
+---
+
+## Diagram Documentation (Feb 3, 2026)
+
+### Created Pipeline Diagrams
+
+Created comprehensive diagrams documenting the IVI system architecture in two formats:
+
+**Location:** `/workspace/diagrams/`
+
+**Files:**
+1. `ivi_pipeline_diagrams.puml` - PlantUML format (3 diagrams)
+2. `IVI_PIPELINE_DIAGRAMS.md` - Mermaid format with documentation
+
+**Diagrams Included:**
+
+1. **Data Preprocessing & Feature Engineering Pipeline**
+   - Raw data sources (4 SAS datasets, 404M+ total rows)
+   - Optimized loading (pyreadstat multiprocessing + Polars + Parquet cache)
+   - Data cleaning steps (missing values, outliers, date alignment)
+   - Contract filtering (MIN_MEMBERS >= 5)
+   - Feature engineering by dimension (H, E, U + Temporal/Geographic)
+   - Output datasets
+
+2. **IVI ML Model Pipeline - Three-Phase Architecture**
+   - Phase 1: LightGBM classifier with imbalance handling and calibration
+   - Phase 2: SHAP decomposition for H/E/U sub-scores
+   - Rule-based scoring path (ECDF percentiles + power mean aggregation)
+   - Phase 3: Multi-dimensional segmentation (12 segments)
+   - Model outputs (scores, bundles)
+
+3. **Complete IVI System Architecture**
+   - End-to-end flow from data sources to dashboard
+   - Segmentation to recommended actions mapping
+   - Dashboard components
+
+**Rendering Options:**
+- PlantUML: Use PlantUML server or VS Code extension
+- Mermaid: Renders natively in GitHub, GitLab, and many markdown viewers

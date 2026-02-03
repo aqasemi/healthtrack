@@ -1,0 +1,3 @@
+"""
+IVI Dashboard package initialization.
+"""
