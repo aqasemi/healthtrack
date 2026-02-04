@@ -2,6 +2,118 @@
 
 ## Experiments Log (Feb 2026)
 
+### Technical Report Documentation (Feb 3, 2026)
+
+**Created:** Comprehensive technical implementation report `TECHNICAL_REPORT.md`
+
+**Contents:**
+1. Executive Summary with key results
+2. System Architecture (technology stack, file structure)
+3. Data Pipeline (loading, preprocessing, filtering)
+4. IVI Scoring Methodology (H, E, U dimensions)
+5. Machine Learning Model (LightGBM, SHAP decomposition)
+6. Customer Health Risk Segmentation (percentile-based)
+7. Dashboard Implementation
+8. Business Recommendations Framework
+9. Model Outputs and Deliverables
+10. Technical Appendix
+
+**Key Clarification:** Distinguished between:
+- **Customer Health Risk Segmentation**: Based on population health indicators (utilization, diagnoses, claims) to target health interventions
+- **Business Risk Segmentation**: Based on IVI score, loss ratio, premium to prioritize account management
+
+---
+
+### Customer Health Risk Segmentation (Feb 3, 2026)
+
+**IMPORTANT CLARIFICATION:** This is specifically **Customer Health Risk Segmentation** - it categorizes clients based on the **health profile** of their member population, NOT general business risk. This is distinct from IVI-based business risk segmentation.
+
+**Purpose:** Identify clients whose member populations have elevated health risks (chronic conditions, high utilization, high claims) so that targeted health interventions can be deployed.
+
+**Implemented:** Percentile-based methodology replacing arbitrary absolute thresholds.
+
+**Previous Approach (Absolute Thresholds):**
+- Used fixed thresholds like utilization_rate > 0.70, diagnoses > 4.0, avg_claim > 5000 SAR
+- Problem: Thresholds were arbitrary and didn't adapt to portfolio distribution
+
+**New Approach (Percentile-Based Health Risk Index):**
+
+**Health Risk Index (HRI)** computed from percentile ranks of health-specific indicators:
+| Indicator | Weight | Description | Health Relevance |
+|-----------|--------|-------------|------------------|
+| Utilization Rate | 25% | % of members using services | Population accessing healthcare |
+| Diagnoses per Utilizer | 30% | Condition burden (most important) | Chronic disease prevalence |
+| Average Claim Amount | 25% | Claim severity | Treatment complexity |
+| Cost per Member | 20% | Overall cost intensity | Healthcare consumption |
+
+**Health Risk Segmentation Thresholds:**
+| Segment | Threshold | Description | Typical Profile |
+|---------|-----------|-------------|-----------------|
+| HIGH | HRI >= P90 | Top 10%ile - highest health risk | High chronic burden, aging workforce |
+| MODERATE_HIGH | HRI P84-P90 | Elevated risk (above mean + 1 std) | Trending toward high risk |
+| MODERATE | HRI P16-P84 | Average health risk (mean +/- 1 std) | Typical population health |
+| LOW_MODERATE | HRI P10-P16 | Below average risk | Healthier than average |
+| LOW | HRI <= P10 | Bottom 10%ile - healthiest population | Minimal healthcare needs |
+
+**Health Risk vs Business Risk:**
+| Aspect | Health Risk Segmentation | Business Risk (IVI-based) |
+|--------|--------------------------|---------------------------|
+| **Focus** | Population health profile | Financial and retention risk |
+| **Indicators** | Utilization, diagnoses, claims | IVI score, loss ratio, premium |
+| **Purpose** | Target health interventions | Prioritize account management |
+| **Actions** | Wellness programs, care management | Pricing, service recovery |
+
+**Key Insight:** A client can have HIGH health risk but LOW business risk if profitable. Health risk segmentation enables proactive wellness interventions regardless of business risk level.
+
+**Files Modified:**
+- `dashboard/utils/data_loader.py`: Added `get_health_portfolio_stats()` and `get_health_risk_segment_percentile()`
+- `dashboard/app_presentation.py`: Updated to use new percentile-based health risk segmentation
+
+**Benefits:**
+1. Segments adapt to actual portfolio distribution
+2. More meaningful comparisons (relative to peers)
+3. Dashboard shows percentile context for each indicator
+4. Consistent with statistical best practices
+5. Clear distinction from business risk segmentation
+
+---
+
+### Presentation Dashboard Update (Feb 3, 2026)
+
+**Created:** `dashboard/app_presentation.py`
+
+**Purpose:** Simplified dashboard for hackathon presentation screenshots.
+
+**Key Changes:**
+1. **Customer Health Risk Segmentation** (different from business risk segmentation)
+   - Based on population health indicators: utilization rate, diagnoses per utilizer, claim costs
+   - Segments: CRITICAL, HIGH, MODERATE, LOW (health risk, not business risk)
+   - Includes health risk factors and explanations
+
+2. **Priority Case View for Decision Makers**
+   - Cases ranked by combined priority score: risk, value (premium), size, profitability
+   - Formula: `risk_factor * value_factor * size_factor * profit_factor * 100`
+   - Higher score = more urgent attention needed
+
+3. **KPI Analysis with Explanations**
+   - For each case, shows IVI score and dimension subscores (H, E, U)
+   - Highlights BAD/WARNING KPIs with clear benchmarks
+   - **Provides explanations for why KPIs are low**, e.g.:
+     - High utilization: "Could be due to older workforce, chronic conditions, work-related risks"
+     - High rejection rate: "Out-of-network usage, benefit misunderstanding, documentation issues"
+     - High loss ratio: "Underpriced contract, high-severity claims, adverse selection"
+
+4. **Recommended Actions**
+   - Actionable recommendations based on identified issues
+   - Segment-specific intervention strategies
+
+**Technical Notes:**
+- Uses Streamlit with custom CSS for clean presentation look
+- Single-file design for simplicity
+- Run with: `streamlit run dashboard/app_presentation.py`
+
+---
+
 ### Experiment: MIN_MEMBERS=5 Filtering (Feb 3, 2026)
 
 **Configuration:**

@@ -271,7 +271,92 @@ flowchart LR
 
 ---
 
-## 4. Model Performance Summary
+## 4. Customer Health Risk Segmentation Pipeline
+
+**Note:** This is specifically **Health Risk Segmentation** - categorizing clients based on the health profile of their member population. This is distinct from IVI-based business risk segmentation.
+
+```mermaid
+flowchart TB
+    subgraph INPUT["Input Data"]
+        contract["Contract Features"]
+        health_kpis["Health-Specific KPIs:<br/>- Utilization Rate<br/>- Diagnoses per Utilizer<br/>- Avg Claim Amount<br/>- Cost per Member"]
+    end
+
+    subgraph PORTFOLIO["Portfolio Statistics"]
+        direction TB
+        dist_util["Distribution:<br/>Utilization Rate"]
+        dist_diag["Distribution:<br/>Diagnoses per Utilizer"]
+        dist_claim["Distribution:<br/>Avg Claim Amount"]
+        dist_cost["Distribution:<br/>Cost per Member"]
+    end
+
+    subgraph PERCENTILE["Percentile Calculation"]
+        pct_util["Utilization<br/>Percentile<br/>(Weight: 25%)"]
+        pct_diag["Diagnoses<br/>Percentile<br/>(Weight: 30%)"]
+        pct_claim["Claim Amt<br/>Percentile<br/>(Weight: 25%)"]
+        pct_cost["Cost/Member<br/>Percentile<br/>(Weight: 20%)"]
+    end
+
+    subgraph HRI["Health Risk Index (HRI)"]
+        hri_calc["HRI = Weighted Sum<br/>of Percentiles<br/>(0-100 scale)"]
+    end
+
+    subgraph SEGMENTS["Health Risk Segments"]
+        high["HIGH<br/>(HRI >= P90)<br/>Top 10%"]
+        mod_high["MODERATE_HIGH<br/>(HRI P84-P90)<br/>Elevated risk"]
+        moderate["MODERATE<br/>(HRI P16-P84)<br/>Average risk"]
+        low_mod["LOW_MODERATE<br/>(HRI P10-P16)<br/>Below average"]
+        low["LOW<br/>(HRI <= P10)<br/>Healthiest"]
+    end
+
+    subgraph ACTIONS["Health Interventions"]
+        action_high["Chronic disease mgmt<br/>Care coordination<br/>Targeted wellness"]
+        action_mod["Early intervention<br/>Health education<br/>Lifestyle support"]
+        action_low["Preventive care<br/>Annual check-ups<br/>Maintain health"]
+    end
+
+    contract --> health_kpis
+    health_kpis --> PORTFOLIO
+    
+    dist_util --> pct_util
+    dist_diag --> pct_diag
+    dist_claim --> pct_claim
+    dist_cost --> pct_cost
+    
+    pct_util --> hri_calc
+    pct_diag --> hri_calc
+    pct_claim --> hri_calc
+    pct_cost --> hri_calc
+    
+    hri_calc --> high & mod_high & moderate & low_mod & low
+    
+    high --> action_high
+    mod_high --> action_mod
+    moderate --> action_low
+    low_mod --> action_low
+    low --> action_low
+
+    style INPUT fill:#FFE4B5,stroke:#333
+    style PORTFOLIO fill:#B0E0E6,stroke:#333
+    style PERCENTILE fill:#98FB98,stroke:#333
+    style HRI fill:#DDA0DD,stroke:#333
+    style SEGMENTS fill:#FFB6C1,stroke:#333
+    style ACTIONS fill:#90EE90,stroke:#333
+```
+
+### Health Risk vs Business Risk Comparison
+
+| Aspect | Health Risk Segmentation | Business Risk (IVI-based) |
+|--------|--------------------------|---------------------------|
+| **Focus** | Population health profile | Financial and retention risk |
+| **Indicators** | Utilization, diagnoses, claims | IVI score, loss ratio, premium |
+| **Purpose** | Target health interventions | Prioritize account management |
+| **Actions** | Wellness programs, care management | Pricing, service recovery |
+| **Question** | "Are members getting healthier?" | "Will this client renew?" |
+
+---
+
+## 5. Model Performance Summary
 
 ```mermaid
 graph LR

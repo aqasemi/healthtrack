@@ -410,7 +410,59 @@ U_SCORE_ML = normalize(sum(SHAP values for utilization features))
 
 ## 6. Segmentation and Recommendations
 
-### 6.1 Multi-Dimensional Segmentation
+### 6.1 Customer Health Risk Segmentation
+
+**IMPORTANT:** This is specifically **Customer Health Risk Segmentation** - it categorizes clients based on the **health profile** of their member population. This is distinct from IVI-based business risk segmentation.
+
+#### Purpose
+Identify clients whose member populations have elevated health risks (chronic conditions, high utilization, high claims) so that targeted health interventions can be deployed.
+
+#### Health Risk Index (HRI) Methodology
+
+The Health Risk Index is computed using percentile-based scoring of key health indicators:
+
+| Indicator | Weight | Description | Health Relevance |
+|-----------|--------|-------------|------------------|
+| Utilization Rate | 25% | % of members using services | Population accessing healthcare |
+| Diagnoses per Utilizer | 30% | Condition burden (most important) | Chronic disease prevalence |
+| Average Claim Amount | 25% | Claim severity | Treatment complexity |
+| Cost per Member | 20% | Overall cost intensity | Healthcare consumption |
+
+Each indicator is converted to a percentile rank relative to the entire portfolio, then weighted and summed to produce the HRI.
+
+#### Health Risk Segments
+
+| Segment | Threshold | Description | Typical Profile |
+|---------|-----------|-------------|-----------------|
+| **HIGH** | HRI >= P90 | Top 10% - highest health risk | High chronic burden, aging workforce |
+| **MODERATE_HIGH** | HRI P84-P90 | Elevated risk | Trending toward high risk |
+| **MODERATE** | HRI P16-P84 | Average health risk | Typical population health |
+| **LOW_MODERATE** | HRI P10-P16 | Below average risk | Healthier than average |
+| **LOW** | HRI <= P10 | Bottom 10% - healthiest | Minimal healthcare needs |
+
+#### Health Risk-Specific Interventions
+
+| Segment | Recommended Health Interventions |
+|---------|----------------------------------|
+| **HIGH** | Chronic disease management, care coordination, targeted wellness programs, health screenings |
+| **MODERATE_HIGH** | Early intervention, health education, lifestyle modification support |
+| **MODERATE** | Standard preventive care, annual check-up promotions |
+| **LOW_MODERATE** | Maintain engagement, preventive screening access |
+| **LOW** | Recognize as healthy benchmark, preserve health status |
+
+#### Health Risk vs Business Risk
+
+| Aspect | Health Risk Segmentation | Business Risk (IVI-based) |
+|--------|--------------------------|---------------------------|
+| **Focus** | Population health profile | Financial and retention risk |
+| **Indicators** | Utilization, diagnoses, claims | IVI score, loss ratio, premium |
+| **Purpose** | Target health interventions | Prioritize account management |
+| **Actions** | Wellness programs, care management | Pricing, service recovery |
+| **Key Question** | "Are members getting healthier?" | "Will this client renew?" |
+
+**Key Insight:** A client can have HIGH health risk but LOW business risk if they are profitable (low loss ratio). Conversely, a LOW health risk client can be HIGH business risk if they have service issues (low E score). The two segmentations serve complementary purposes.
+
+### 6.2 Multi-Dimensional Business Segmentation
 
 IVI score alone is insufficient for actionable segmentation. Different client profiles require different interventions even at the same risk level.
 
@@ -424,7 +476,21 @@ IVI score alone is insufficient for actionable segmentation. Different client pr
 
 **Combined Segments:** 3 x 2 x 2 = 12 segments
 
-### 6.2 Segment Definitions and Actions
+### 6.2 Multi-Dimensional Business Segmentation
+
+IVI score alone is insufficient for actionable segmentation. Different client profiles require different interventions even at the same risk level.
+
+**Segmentation Dimensions:**
+
+| Dimension | Categories | Logic |
+|-----------|------------|-------|
+| IVI Risk | High, Moderate, Low | Based on percentile thresholds (33rd, 67th) |
+| Contract Size | Small, Large | Based on median member count |
+| Profitability | Profitable, Unprofitable | Loss ratio <= 1.0 vs > 1.0 |
+
+**Combined Segments:** 3 x 2 x 2 = 12 segments
+
+### 6.3 Segment Definitions and Actions
 
 | Segment | Characteristics | Priority | Recommended Action |
 |---------|-----------------|----------|-------------------|
@@ -435,7 +501,7 @@ IVI score alone is insufficient for actionable segmentation. Different client pr
 | MODERATE_RISK_LARGE_* | Borderline, high value | WATCH | Monitor sub-scores, proactive check-in |
 | LOW_RISK_LARGE_PROFITABLE | Stable, valuable | NURTURE | Maintain relationship, offer value-adds |
 
-### 6.3 Root Cause Analysis Framework
+### 6.4 Root Cause Analysis Framework
 
 When investigating a high-risk client, examine sub-scores to identify intervention targets:
 

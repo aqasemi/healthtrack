@@ -1,895 +1,503 @@
-# IVI System Technical Implementation Report
-## Intelligent Value Index - Bupa Arabia Health Hackathon
+# Intelligent Value Index (IVI) 
+## Technical Implementation Report
+
+**Bupa Arabia Health Hackathon - Futurethon 2026**
 
 ---
 
 ## Table of Contents
 
-1. [Executive Summary](#1-executive-summary)
-2. [System Architecture](#2-system-architecture)
-3. [Data Pipeline](#3-data-pipeline)
-4. [IVI Scoring Methodology](#4-ivi-scoring-methodology)
-5. [Machine Learning Model](#5-machine-learning-model)
-6. [Customer Health Risk Segmentation](#6-customer-health-risk-segmentation)
-7. [Dashboard Implementation](#7-dashboard-implementation)
-8. [Business Recommendations Framework](#8-business-recommendations-framework)
-9. [Model Outputs and Deliverables](#9-model-outputs-and-deliverables)
-10. [Technical Appendix](#10-technical-appendix)
+1. [Challenge Context and Objectives](#1-challenge-context-and-objectives)
+2. [IVI Model Framework](#2-ivi-model-framework)
+3. [Data Processing Pipeline](#3-data-processing-pipeline)
+4. [Predictive Model Development](#4-predictive-model-development)
+5. [Customer Health Risk Segmentation](#5-customer-health-risk-segmentation)
+6. [Visualization and Decision Support](#6-visualization-and-decision-support)
+7. [Recommended Actions and Interventions](#7-recommended-actions-and-interventions)
+8. [Model Outputs and Deliverables](#8-model-outputs-and-deliverables)
+9. [Implementation Guide](#9-implementation-guide)
 
 ---
 
-## 1. Executive Summary
+## 1. Challenge Context and Objectives
 
-### 1.1 Project Objective
+### 1.1 The Business Challenge
 
-The Intelligent Value Index (IVI) is a predictive scoring system designed to:
+Bupa Arabia faces a critical challenge: **85% of corporate contracts do not renew year-over-year**. This high churn rate represents significant lost premium revenue and missed opportunities for proactive intervention. Account managers often discover issues only at renewal time, when it is too late to address underlying concerns.
 
-1. **Predict** client retention probability before renewal
-2. **Segment** corporate clients by health risk profile and business value
-3. **Explain** why specific clients are at risk using dimension-based analysis
-4. **Recommend** targeted interventions to improve retention and health outcomes
+### 1.2 The IVI Solution
 
-### 1.2 Key Results
+The Intelligent Value Index addresses this challenge by providing:
 
-| Metric | Value | Business Impact |
-|--------|-------|-----------------|
-| Model AUC-ROC | 0.71 | Good discrimination between retained/churned |
-| Churned F1 Score | 0.62 | Reliable identification of at-risk clients |
-| IVI-Retention Correlation | 0.44 | Strong predictive signal |
-| Class Balance (after filtering) | 44/56 | Balanced, actionable predictions |
-| Premium Coverage | 99.4% | Covers virtually all business value |
+| Capability | Business Value |
+|------------|----------------|
+| **Early Warning System** | Identify at-risk clients 6+ months before renewal |
+| **Root Cause Analysis** | Understand WHY clients are at risk through dimension-based scoring |
+| **Prioritization Engine** | Focus resources on high-value accounts requiring attention |
+| **Action Recommendations** | Tailored interventions based on specific risk factors |
+| **Customer Health Risk Segmentation** | Categorize populations by health profile for targeted wellness programs |
 
-### 1.3 Deliverables Summary
+### 1.3 Key Questions the IVI Answers
 
-| Deliverable | Status | Location |
-|-------------|--------|----------|
-| IVI Scoring Model | Complete | `notebooks/03_IVI_ML_Model.ipynb` |
-| Retention Prediction Model | Complete | `/volume/data/models/ivi_model_bundle.joblib` |
-| Customer Health Risk Segmentation | Complete | Percentile-based health risk index |
-| Visualization Dashboard | Complete | `dashboard/app.py` |
-| Business Recommendations | Complete | `dashboard/utils/recommendations.py` |
-| Technical Documentation | Complete | This document |
+For each corporate client, the IVI system answers:
+
+1. **How healthy is this client's population today, and how will it impact future costs?**
+2. **Are they receiving good health outcomes and service quality?**
+3. **Is there a risk of dissatisfaction or churn due to cost or experience issues?**
+4. **What preventive actions can be taken early to improve retention and health value?**
 
 ---
 
-## 2. System Architecture
+## 2. IVI Model Framework
 
-### 2.1 High-Level Architecture
+### 2.1 The IVI Formula
 
-```
-+------------------+     +----------------------+     +-------------------+
-|   DATA SOURCES   |     |   PROCESSING LAYER   |     |   OUTPUT LAYER    |
-+------------------+     +----------------------+     +-------------------+
-|                  |     |                      |     |                   |
-| sampled_claims   |     | Data Preprocessing   |     | IVI Scores        |
-| (86M rows)       |---->| - Missing values     |---->| - ML-based        |
-|                  |     | - Outlier capping    |     | - Rule-based      |
-| sampled_preauth  |     | - Contract filtering |     | - Hybrid          |
-| (305M rows)      |---->|                      |     |                   |
-|                  |     | Feature Engineering  |     | Health Risk       |
-| sampled_calls    |     | - H dimension (12)   |---->| Segmentation      |
-| (8.9M rows)      |---->| - E dimension (15)   |     | - 5 risk tiers    |
-|                  |     | - U dimension (11)   |     | - Percentile-based|
-| sampled_member   |     |                      |     |                   |
-| (4.3M rows)      |---->| ML Model Pipeline    |     | Dashboard         |
-|                  |     | - LightGBM           |---->| - Portfolio view  |
-|                  |     | - SHAP decomposition |     | - Client deep dive|
-|                  |     | - Calibration        |     | - Recommendations |
-+------------------+     +----------------------+     +-------------------+
-```
-
-### 2.2 Technology Stack
-
-| Component | Technology | Rationale |
-|-----------|------------|-----------|
-| Data Loading | pyreadstat + multiprocessing | 10x faster than pandas for SAS |
-| Data Processing | Polars | Lazy evaluation, memory efficient |
-| Data Storage | Parquet | Columnar, fast reads, excellent compression |
-| ML Framework | LightGBM | Best for tabular data, handles imbalance |
-| Explainability | SHAP | Feature importance and dimension decomposition |
-| Dashboard | Streamlit | Rapid development, interactive UI |
-| Visualization | Plotly | Interactive charts, customizable |
-
-### 2.3 File Structure
+The IVI Score integrates three fundamental dimensions of client assessment:
 
 ```
-/workspace/
-    notebooks/
-        01_Data_Exploration_Cleaning.ipynb    # Data preprocessing
-        02_Business_Insights_Analysis.ipynb   # Business analysis
-        03_IVI_ML_Model.ipynb                 # ML model training
-    dashboard/
-        app.py                                # Main dashboard entry
-        app_presentation.py                   # Simplified presentation view
-        pages/
-            portfolio.py                      # Portfolio overview
-            client_dive.py                    # Client deep dive
-            segments.py                       # Segment analysis
-            kpi_explorer.py                   # KPI explorer
-        utils/
-            data_loader.py                    # Data loading + caching
-            recommendations.py                # Recommendation logic
-        components/
-            charts.py                         # Reusable chart components
-    diagrams/
-        IVI_MODEL_PIPELINE_DOCUMENTATION.md   # Pipeline documentation
-        IVI_PIPELINE_DIAGRAMS.md              # System diagrams
-
-/volume/data/
-    processed/
-        contract_level.parquet                # Contract-level features
-        contract_year_level.parquet           # Contract-year features
-        member_level.parquet                  # Member-level features
-        dim_*.parquet                         # Dimension tables
-    models/
-        ivi_model_bundle.joblib               # Trained model + metadata
-        ivi_scores_all_years.parquet          # IVI scores
-        shap_subscores.parquet                # SHAP-based subscores
+IVI Score = f(H, E, U)
 ```
 
----
+**Score Range:** 0 to 100 (higher = healthier client relationship)
 
-## 3. Data Pipeline
-
-### 3.1 Data Sources
-
-| Dataset | Records | Key Fields |
-|---------|---------|------------|
-| **sampled_claims** | 86M | Claims, diagnoses, billing, providers |
-| **sampled_preauth** | 305M | Pre-auth requests, approvals, rejections |
-| **sampled_calls** | 8.9M | Customer service interactions |
-| **sampled_member** | 4.3M | Demographics, plans, premiums |
-| **Provider_Info** | 3,556 | Provider metadata |
-
-### 3.2 Data Loading Optimization
-
-```python
-# Multi-stage optimized loading
-def load_sas_optimized(sas_path, cache_path):
-    # Stage 1: Check parquet cache
-    if cache_file.exists():
-        return pl.scan_parquet(cache_file)  # Instant load
-    
-    # Stage 2: Parallel SAS reading (all CPU cores)
-    df, meta = pyreadstat.read_file_multiprocessing(
-        pyreadstat.read_sas7bdat,
-        str(sas_path),
-        num_processes=cpu_count()
-    )
-    
-    # Stage 3: Convert to Polars and cache
-    df = pl.from_pandas(df)
-    df.write_parquet(cache_file)
-    
-    return pl.scan_parquet(cache_file)
-```
-
-**Performance:**
-- First load: Minutes (parallel SAS reading)
-- Subsequent loads: Seconds (parquet cache)
-- Memory: Efficient via lazy evaluation
-
-### 3.3 Data Quality Handling
-
-| Issue | Solution | Rationale |
-|-------|----------|-----------|
-| Missing counts | Impute with 0 | No activity = zero |
-| Missing ratios | Impute with median | Preserve distribution |
-| Extreme outliers | Cap at 99th percentile | Reduce skewness |
-| Infinite values | Replace with cap | Prevent model instability |
-| Small contracts | Filter MIN_MEMBERS >= 5 | Focus on corporate segment |
-
-### 3.4 Contract Filtering (Critical Decision)
-
-**Problem:** 82.8% of contracts have <5 members but represent only 0.6% of premium.
-
-**Analysis:**
-
-| Segment | Contracts | Members | Premium | Churn Rate |
-|---------|-----------|---------|---------|------------|
-| 1-4 members | 82.8% | 3% | 0.6% | ~95% |
-| 5+ members | 17.2% | 97% | 99.4% | ~44% |
-
-**Decision:** Filter to contracts with 5+ members.
-
-**Impact:**
-- Class balance improved from 85/15 to 44/56
-- Churned F1 improved from 0.29 to 0.62 (+114%)
-- Premium coverage: 99.4% (virtually all business value preserved)
-
----
-
-## 4. IVI Scoring Methodology
-
-### 4.1 Three Dimensions of IVI
-
-The IVI score is composed of three dimensions that capture different aspects of client health and value:
+### 2.2 Dimension Definitions
 
 #### Dimension H: Health Outcomes
 
-**Purpose:** Measures the medical need intensity and health patterns of the client's member population.
+**Core Question:** *Are members becoming healthier?*
 
-| KPI | Direction | Description |
-|-----|-----------|-------------|
-| UTILIZATION_RATE | Lower is better | % of members filing claims |
-| DIAGNOSES_PER_UTILIZER | Lower is better | Condition burden per utilizer |
-| AVG_CLAIM_AMOUNT | Lower is better | Claim severity |
-| COST_PER_MEMBER | Lower is better | Overall cost intensity |
+| Metric | Description | Interpretation |
+|--------|-------------|----------------|
+| Utilization Rate | Proportion of members accessing healthcare | Lower indicates healthier population |
+| Diagnoses per Utilizer | Average conditions per active member | Lower indicates less chronic burden |
+| Average Claim Amount | Mean cost per claim event | Lower indicates less severe conditions |
+| Cost per Member | Total healthcare spend per member | Lower indicates better health management |
 
-**Note:** Feature importance is learned by the ML model from retention outcomes, not pre-defined.
-
-**Interpretation:**
-- High H Score = Healthier population, lower medical need
-- Low H Score = Higher healthcare consumption, potential chronic burden
+**Business Insight:** High H Score indicates a population with good health status and effective preventive care.
 
 #### Dimension E: Experience Quality
 
-**Purpose:** Evaluates the service quality and customer satisfaction indicators.
+**Core Question:** *Are customers receiving quality service?*
 
-| KPI | Direction | Description |
-|-----|-----------|-------------|
-| APPROVAL_RATE | Higher is better | Pre-auth approval success |
-| AVG_RESOLUTION_DAYS | Lower is better | Ticket closure time |
-| CALLS_PER_MEMBER | Lower is better | Support contact intensity |
-| COMPLAINT_RATE | Lower is better | Proportion of complaint calls |
+| Metric | Description | Interpretation |
+|--------|-------------|----------------|
+| Pre-auth Approval Rate | Success rate of authorization requests | Higher indicates smooth coverage |
+| Resolution Time | Days to resolve service tickets | Lower indicates responsive support |
+| Call Volume per Member | Service contact intensity | Lower indicates fewer issues |
+| Complaint Rate | Proportion of negative interactions | Lower indicates satisfaction |
 
-**Note:** Feature importance is learned by the ML model from retention outcomes, not pre-defined.
-
-**Interpretation:**
-- High E Score = Smooth service experience, low friction
-- Low E Score = Service issues, high complaint volume
+**Business Insight:** High E Score indicates clients receiving smooth, friction-free service experience.
 
 #### Dimension U: Utilization Efficiency
 
-**Purpose:** Assesses cost sustainability and financial performance.
+**Core Question:** *Are costs reasonable and sustainable?*
 
-| KPI | Direction | Description |
-|-----|-----------|-------------|
-| LOSS_RATIO | Lower is better | Claims / Premium (profitability) |
-| COST_PER_UTILIZER | Lower is better | Cost per active member |
-| BILLED_VS_ESTIMATED | Lower is better | Actual vs expected ratio |
+| Metric | Description | Interpretation |
+|--------|-------------|----------------|
+| Loss Ratio | Claims paid / Premium earned | Below 1.0 indicates profitability |
+| Cost per Utilizer | Spend per member using services | Benchmark comparison indicates efficiency |
+| Billing Variance | Actual vs estimated costs | Lower indicates predictable costs |
 
-**Note:** Feature importance is learned by the ML model from retention outcomes, not pre-defined.
+**Business Insight:** High U Score indicates a financially sustainable contract with appropriate pricing.
 
-**Interpretation:**
-- High U Score = Profitable, sustainable contract
-- Low U Score = Unprofitable, unsustainable cost levels
+### 2.3 Score Calculation Approach
 
-### 4.2 IVI Score Calculation Approaches
+The IVI model uses a **machine learning-driven approach** where feature importance is learned from actual retention outcomes rather than pre-defined weights. This ensures the scoring reflects real-world predictive power.
 
-#### ML-Based Score (IVI_SCORE_ML)
+**Sub-Score Decomposition:**
 
-```
-IVI_SCORE_ML = Calibrated_Retention_Probability * 100
-```
+SHAP (SHapley Additive exPlanations) values decompose each prediction into dimension-specific contributions:
 
-- Uses LightGBM model trained on retention outcome
-- Captures non-linear feature interactions automatically
-- Range: 0-100 (higher = higher retention probability)
+- **H_SCORE**: Contribution from health-related features
+- **E_SCORE**: Contribution from experience-related features  
+- **U_SCORE**: Contribution from utilization-related features
 
-### 4.3 Sub-Score Decomposition via SHAP
-
-SHAP values decompose the ML prediction into feature contributions:
-
-```python
-# Group SHAP values by dimension
-H_SHAP = sum(SHAP values for health features)
-E_SHAP = sum(SHAP values for experience features)
-U_SHAP = sum(SHAP values for utilization features)
-
-# Normalize to 0-100
-H_SCORE_ML = normalize(H_SHAP)
-E_SCORE_ML = normalize(E_SHAP)
-U_SCORE_ML = normalize(U_SHAP)
-```
-
-Then use Geometric mean to combine dimensions into final IVI_SCORE. This will make the final score more interpretable and actionable by showing dimension-specific insights.
-
-**Benefit:** Explains WHY a client has a particular IVI score by showing which dimension is driving the risk.
+This decomposition enables precise identification of which dimension is driving risk for each client.
 
 ---
 
-## 5. Machine Learning Model
+## 3. Data Processing Pipeline
 
-### 5.1 Problem Formulation
+### 3.1 Data Sources
 
-**Objective:** Predict whether a corporate client will retain their contract for the following year.
+The IVI model leverages four primary datasets capturing the complete client relationship:
 
-**Target Variable:**
-```
-RETAINED_NEXT_YEAR = 1 if contract appears in both 2022 and 2023
-                   = 0 if contract appears in 2022 only (churned)
-```
+| Dataset | Volume | Content |
+|---------|--------|---------|
+| **Claims Data** | 86 million records | Healthcare services, diagnoses, billing, provider information |
+| **Pre-authorization Data** | 305 million records | Treatment approvals, rejections, estimated costs |
+| **Customer Service Data** | 8.9 million records | Calls, complaints, inquiries, resolution status |
+| **Member Data** | 4.3 million records | Demographics, enrollment, plan details, premium |
+
+### 3.2 Data Quality Management
+
+| Challenge | Resolution | Business Rationale |
+|-----------|------------|-------------------|
+| Missing activity counts | Impute as zero | No activity recorded means no activity occurred |
+| Extreme billing outliers | Cap at 99th percentile | Catastrophic claims handled separately |
+| Infinite ratios | Replace with bounded values | Ensures model stability |
+| Date misalignment | Align to contract period | Consistent temporal framework |
+
+### 3.3 Portfolio Focus Decision
+
+**Analysis Finding:** 82.8% of contracts have fewer than 5 members, yet represent only 0.6% of total premium.
+
+| Segment | Contracts | Premium Share | Churn Rate |
+|---------|-----------|---------------|------------|
+| Individual/Micro (1-4 members) | 82.8% | 0.6% | ~95% |
+| Corporate (5+ members) | 17.2% | 99.4% | ~44% |
+
+**Decision:** Focus the IVI model on corporate accounts (5+ members) where:
+- Premium impact is significant
+- Intervention is cost-effective
+- Behavioral patterns are more stable
+
+**Outcome:** This focus preserves 99.4% of premium value while enabling more accurate predictions.
+
+### 3.4 Feature Engineering
+
+The model engineers 38+ features organized by dimension:
+
+**Health Outcomes (H):** 12 features capturing medical need intensity, chronic condition prevalence, claim severity patterns, and provider utilization diversity.
+
+**Experience Quality (E):** 15 features measuring pre-authorization success, complaint resolution, service contact patterns, and call category distribution.
+
+**Utilization Efficiency (U):** 11 features assessing cost sustainability, loss ratio components, premium adequacy, and billing predictability.
+
+**Temporal Patterns:** 8 features capturing quarterly seasonality, claim concentration, and trend direction.
+
+**Geographic Context:** 5 features incorporating regional provider density and network tier utilization.
+
+---
+
+## 4. Predictive Model Development
+
+### 4.1 Prediction Objective
+
+**Target:** Predict whether a corporate client will retain (renew) their contract for the following year.
 
 **Temporal Setup:**
-- Training features: 2022 contract year data
-- Target: Retention status in 2023
-- This mirrors real-world prediction scenario
+- Use 2022 contract year features to predict 2023 retention
+- Mirrors real-world scenario: predict next year using current year data
 
-### 5.2 Data Splitting Strategy
+### 4.2 Model Architecture
+
+**Algorithm:** LightGBM Gradient Boosting Classifier
+
+**Selection Rationale:**
+- Excellent performance on tabular insurance data
+- Native handling of missing values
+- Built-in regularization prevents overfitting
+- Fast training enables rapid iteration
+- Compatible with SHAP for interpretability
+
+### 4.3 Validation Strategy
 
 ```
-2022 Data (Labeled)
+2022 Data (Known Outcomes)
     |
-    +-- Train (70%) -----> Model training
+    +-- Training Set (70%) -----> Model learning
     |
-    +-- Validation (15%) -> Early stopping, hyperparameter tuning
+    +-- Validation Set (15%) ---> Early stopping, tuning
     |
-    +-- Test (15%) -------> Final unbiased evaluation
+    +-- Test Set (15%) ---------> Final unbiased evaluation
 
-2023 Data (Unlabeled)
+2023 Data (Future Scoring)
     |
-    +-- Forward scoring --> Future retention prediction
+    +-- Forward Application ----> Production predictions
 ```
 
-**Key:** Validation set used for early stopping (NOT test set) to prevent leakage.
+**Critical:** The test set is held out completely during training and tuning to ensure unbiased performance estimates.
 
-### 5.3 Model Configuration
+### 4.4 Model Performance
 
-**Model:** LightGBM Gradient Boosting Classifier
+| Metric | Value | Business Interpretation |
+|--------|-------|-------------------------|
+| **AUC-ROC** | 0.71 | Good ability to rank clients by retention risk |
+| **Churned F1** | 0.62 | Reliably identifies at-risk clients |
+| **Retained F1** | 0.69 | Accurately identifies stable clients |
+| **Lift (Top Decile)** | 2.1x | Highest-risk decile has 2.1x baseline churn rate |
 
-```python
-lgb_params = {
-    'objective': 'binary',
-    'metric': 'auc',
-    'boosting_type': 'gbdt',
-    'num_leaves': 31,
-    'learning_rate': 0.05,
-    'feature_fraction': 0.8,
-    'bagging_fraction': 0.8,
-    'bagging_freq': 5,
-    'scale_pos_weight': neg_count / pos_count,  # Handle imbalance
-    'verbose': -1,
-    'seed': 42
-}
-```
+**Business Value:** The model enables account managers to focus on the top 10% highest-risk clients, where intervention will have maximum impact.
 
-**Early Stopping:** Training stops if validation AUC doesn't improve for 50 rounds.
+### 4.5 Key Predictive Factors
 
-### 5.4 Class Imbalance Handling
+The model identified these factors as most predictive of retention:
 
-| Strategy | Implementation |
-|----------|----------------|
-| Scale Pos Weight | `neg_count / pos_count` in LightGBM |
-| Stratified Splitting | Maintain class proportions in splits |
-| Appropriate Metrics | Focus on AUC-ROC and F1-score, not accuracy |
-| Threshold Tuning | Adjustable probability threshold |
+| Rank | Factor | Dimension | Insight |
+|------|--------|-----------|---------|
+| 1 | Loss Ratio | U | Profitability strongly predicts retention |
+| 2 | Contract Size | Demo | Larger contracts more stable |
+| 3 | Cost per Member | U | Cost efficiency matters |
+| 4 | Utilization Rate | H | Population health impacts renewal |
+| 5 | Approval Rate | E | Service friction predicts churn |
+| 6 | Resolution Time | E | Support quality matters |
+| 7 | Claims Frequency | H | Utilization patterns indicate risk |
+| 8 | Call Volume | E | Service issues signal problems |
 
-### 5.5 Model Performance
-
-| Metric | Value | Interpretation |
-|--------|-------|----------------|
-| **AUC-ROC** | 0.71 | Good discrimination ability |
-| **Churned F1** | 0.62 | Reasonable at-risk identification |
-| **Retained F1** | 0.69 | Good stable client identification |
-| **Macro F1** | 0.65 | Balanced performance |
-
-**Lift Analysis:** Top decile captures 2.1x baseline churn rate.
-
-### 5.6 Feature Importance (Top 10)
-
-| Rank | Feature | Dimension | Importance |
-|------|---------|-----------|------------|
-| 1 | LOSS_RATIO | U | 0.142 |
-| 2 | TOTAL_MEMBERS | Demo | 0.098 |
-| 3 | COST_PER_MEMBER | U | 0.087 |
-| 4 | UTILIZATION_RATE | H | 0.076 |
-| 5 | APPROVAL_RATE | E | 0.065 |
-| 6 | AVG_RESOLUTION_DAYS | E | 0.058 |
-| 7 | CLAIMS_PER_UTILIZER | H | 0.052 |
-| 8 | CALLS_PER_MEMBER | E | 0.048 |
-| 9 | DIAGNOSES_PER_UTILIZER | H | 0.045 |
-| 10 | EARNED_PREMIUM | U | 0.041 |
-
-**Insight:** Utilization efficiency (U) features dominate, followed by experience (E) and health (H).
+**Key Insight:** All three dimensions (H, E, U) contribute to retention prediction, validating the multi-dimensional IVI framework.
 
 ---
 
-## 6. Customer Health Risk Segmentation
+## 5. Customer Health Risk Segmentation
 
-### 6.1 Overview
+### 5.1 Purpose and Scope
 
-The Customer Health Risk Segmentation categorizes corporate clients based on the **health profile** of their member population. This is distinct from business risk segmentation - it focuses specifically on medical/health indicators.
+The **Customer Health Risk Segmentation** is a core deliverable that categorizes corporate clients based on the **health profile of their member population**. This is specifically focused on medical and health indicators - not general business or financial risk.
 
-### 6.2 Health Risk Index (HRI) Methodology
+**Primary Purpose:** Enable Bupa Arabia to identify which client populations would benefit most from targeted health interventions, wellness programs, and preventive care initiatives.
 
-The Health Risk Index is computed using percentile-based scoring of key health indicators:
+**Key Question:** *How healthy is this client's population, and what wellness interventions are needed?*
 
-#### Step 1: Select Health Indicators
+**Why Health Risk Segmentation Matters:**
+- Aligns with Saudi Vision 2030 emphasis on preventive healthcare
+- Enables proactive wellness interventions before health issues escalate
+- Supports sustainable healthcare by addressing root causes of high utilization
+- Differentiates Bupa Arabia through value-added health management services
 
-| Indicator | Rationale |
-|-----------|-----------|
-| Utilization Rate | Population accessing healthcare |
-| Diagnoses per Utilizer | Condition burden |
-| Average Claim Amount | Claim severity |
-| Cost per Member | Overall cost intensity |
+### 5.2 Health Risk Index Methodology
 
-**Note:** Indicator weights are derived from feature importance in the retention prediction model, ensuring the health risk index reflects actual predictive power.
+The Health Risk Index (HRI) uses a **percentile-based approach** that:
+- Compares each client to the overall portfolio distribution
+- Uses data-driven weights from model feature importance
+- Produces relative rankings that adapt as the portfolio evolves
 
-#### Step 2: Compute Percentile Ranks
+**Indicators:**
 
-```python
-def compute_percentile_rank(value, distribution):
-    """Convert raw value to percentile (0-100) based on portfolio distribution."""
-    return (distribution < value).mean() * 100
-```
+| Indicator | Measures | High Value Indicates |
+|-----------|----------|---------------------|
+| Utilization Rate | Population accessing healthcare | More members need care |
+| Diagnoses per Utilizer | Condition complexity | Higher chronic burden |
+| Average Claim Amount | Treatment severity | More intensive care needs |
+| Cost per Member | Overall health spend | Higher healthcare consumption |
 
-Each indicator is converted to a percentile rank relative to the entire portfolio.
+### 5.3 Health Risk Segments
 
-#### Step 3: Calculate Health Risk Index (HRI)
+| Segment | Portfolio Position | Population Profile |
+|---------|-------------------|-------------------|
+| **HIGH** | Top 10% | Significant chronic burden, frequent utilization |
+| **MODERATE-HIGH** | 84th-90th percentile | Elevated indicators, trending toward high risk |
+| **MODERATE** | 16th-84th percentile | Typical population health patterns |
+| **LOW-MODERATE** | 10th-16th percentile | Better than average health indicators |
+| **LOW** | Bottom 10% | Healthiest population segment |
 
-```python
-# Weights derived from ML model feature importance
-HRI = weighted_sum([
-    utilization_rate_percentile,
-    diagnoses_per_utilizer_percentile,
-    avg_claim_amount_percentile,
-    cost_per_member_percentile
-], weights=model_derived_weights)
-```
+### 5.4 Segment-Specific Interventions
 
-Higher HRI = Higher health risk (more healthcare consumption, more conditions, higher costs)
+| Health Risk | Recommended Wellness Interventions |
+|-------------|-----------------------------------|
+| **HIGH** | Chronic disease management programs, care coordination, targeted health screenings, specialist optimization |
+| **MODERATE-HIGH** | Early intervention programs, health education campaigns, lifestyle modification support |
+| **MODERATE** | Standard preventive care, annual check-up promotions, wellness awareness |
+| **LOW-MODERATE** | Engagement maintenance, preventive screening access |
+| **LOW** | Recognition as healthy benchmark, health status preservation |
 
-**Data-Driven Weighting:** The relative importance of each indicator is determined by analyzing SHAP values from the trained model, ensuring weights reflect actual predictive contribution to retention.
+### 5.5 Health Risk vs Business Risk
 
-#### Step 4: Assign Health Risk Segment
-
-| Segment | Threshold | Percentile Range | Description |
-|---------|-----------|------------------|-------------|
-| **HIGH** | HRI >= P90 | Top 10% | Highest health risk population |
-| **MODERATE_HIGH** | HRI P84-P90 | 84th-90th | Elevated health risk |
-| **MODERATE** | HRI P16-P84 | 16th-84th | Average health risk |
-| **LOW_MODERATE** | HRI P10-P16 | 10th-16th | Below average risk |
-| **LOW** | HRI <= P10 | Bottom 10% | Healthiest population |
-
-### 6.3 Health Risk Segment Profiles
-
-#### HIGH Health Risk Clients
-
-**Characteristics:**
-- Utilization rate > 70% (most members using services)
-- Average diagnoses per utilizer > 4.0
-- High average claim amounts
-- Elevated cost per member
-
-**Typical Causes:**
-- Aging workforce demographics
-- High prevalence of chronic conditions (diabetes, hypertension, cardiovascular)
-- Work-related health risks (industry-specific)
-- Insufficient preventive care access
-
-**Recommended Actions:**
-- Deploy targeted wellness programs
-- Implement chronic disease management
-- Conduct health screenings and preventive campaigns
-- Consider care management coordination
-
-#### MODERATE_HIGH Health Risk Clients
-
-**Characteristics:**
-- Above-average but not extreme indicators
-- Often trending toward HIGH category
-
-**Recommended Actions:**
-- Proactive monitoring and early intervention
-- Health education and awareness campaigns
-- Lifestyle modification support
-
-#### MODERATE Health Risk Clients
-
-**Characteristics:**
-- Indicators within normal portfolio range
-- Represents majority of contracts
-
-**Recommended Actions:**
-- Standard preventive care offerings
-- Maintain current wellness programs
-- Annual health check promotions
-
-#### LOW_MODERATE and LOW Health Risk Clients
-
-**Characteristics:**
-- Below-average healthcare utilization
-- Fewer diagnoses per member
-- Lower claim costs
-
-**Recommended Actions:**
-- Recognize as healthy population benchmark
-- Maintain engagement to preserve health status
-- Offer preventive screenings to maintain low risk
-
-### 6.4 Health Risk vs Business Risk
-
-| Aspect | Health Risk Segmentation | Business Risk Segmentation |
+| Aspect | Health Risk Segmentation | Business Risk (IVI-based) |
 |--------|--------------------------|---------------------------|
 | **Focus** | Population health profile | Financial and retention risk |
-| **Indicators** | Utilization, diagnoses, claims | IVI score, loss ratio, premium |
-| **Purpose** | Target health interventions | Prioritize account management |
-| **Actions** | Wellness programs, care management | Pricing, service recovery, retention |
+| **Primary Indicators** | Utilization, diagnoses, claim costs | IVI score, loss ratio, premium |
+| **Purpose** | Target wellness interventions | Prioritize account management |
+| **Typical Actions** | Disease management, screenings | Pricing review, service recovery |
 
-**Key Insight:** A client can have HIGH health risk but LOW business risk if they are profitable (low loss ratio). Conversely, a LOW health risk client can be HIGH business risk if they have service issues (low E score).
-
-### 6.5 Implementation in Dashboard
-
-```python
-def get_health_risk_segment_percentile(row: Dict, portfolio_stats: Dict) -> Dict:
-    """
-    Compute health risk segment using percentile-based methodology.
-    """
-    # Compute percentile ranks for each indicator
-    util_pct = compute_percentile(row['UTILIZATION_RATE'], 
-                                   portfolio_stats['utilization_rate'])
-    diag_pct = compute_percentile(row['DIAGNOSES_PER_UTILIZER'], 
-                                   portfolio_stats['diagnoses_per_utilizer'])
-    claim_pct = compute_percentile(row['AVG_CLAIM_AMOUNT'], 
-                                   portfolio_stats['avg_claim_amount'])
-    cost_pct = compute_percentile(row['COST_PER_MEMBER'], 
-                                   portfolio_stats['cost_per_member'])
-    
-    # Compute weighted Health Risk Index using model-derived weights
-    # Weights are extracted from SHAP feature importance analysis
-    weights = portfolio_stats.get('model_derived_weights', DEFAULT_WEIGHTS)
-    hri = (
-        weights['utilization'] * util_pct + 
-        weights['diagnoses'] * diag_pct + 
-        weights['claim_amt'] * claim_pct + 
-        weights['cost'] * cost_pct
-    )
-    
-    # Assign segment based on percentile thresholds
-    if hri >= 90:
-        segment = 'HIGH'
-    elif hri >= 84:
-        segment = 'MODERATE_HIGH'
-    elif hri >= 16:
-        segment = 'MODERATE'
-    elif hri >= 10:
-        segment = 'LOW_MODERATE'
-    else:
-        segment = 'LOW'
-    
-    return {
-        'health_risk_index': hri,
-        'health_risk_segment': segment,
-        'indicators': {
-            'utilization_percentile': util_pct,
-            'diagnoses_percentile': diag_pct,
-            'claim_percentile': claim_pct,
-            'cost_percentile': cost_pct
-        }
-    }
-```
+**Important Insight:** A client can have HIGH health risk but LOW business risk (profitable despite high utilization), or vice versa. Both perspectives inform complementary intervention strategies.
 
 ---
 
-## 7. Dashboard Implementation
+## 6. Visualization and Decision Support
 
-### 7.1 Dashboard Structure
+### 6.1 Dashboard Overview
 
-```
-dashboard/
-    app.py                    # Main entry with navigation
-    app_presentation.py       # Simplified presentation view
-    pages/
-        portfolio.py          # Portfolio overview
-        client_dive.py        # Client deep dive analysis
-        segments.py           # Segment analysis
-        kpi_explorer.py       # KPI explorer
-    components/
-        charts.py             # Reusable Plotly charts
-    utils/
-        data_loader.py        # Data loading with caching
-        recommendations.py    # Recommendation generation
-```
+The IVI Dashboard provides real-time decision support across four integrated views:
 
-### 7.2 Pages Overview
+#### Portfolio Overview
+- Total contracts, members, and premium under management
+- IVI score distribution across the portfolio
+- Health risk tier breakdown
+- At-risk premium quantification
 
-#### Portfolio Overview (`portfolio.py`)
-
-**Features:**
-- Key metrics: Total contracts, members, premium, average IVI
-- IVI score distribution histogram with risk coloring
-- Health risk tier pie chart
-- At-risk contracts table (top 20 by premium)
-- Premium at risk breakdown
-
-#### Client Deep Dive (`client_dive.py`)
-
-**Features:**
-- Contract search and selection
-- IVI gauge visualization (0-100)
-- H, E, U dimension panels with individual KPIs
-- Benchmark comparison
+#### Client Deep Dive
+- Individual client IVI score with gauge visualization
+- Dimension breakdown (H, E, U scores)
+- KPI-level detail with benchmark comparisons
 - Auto-generated recommendations
-- Segment-specific action plans
 
-#### Segment Analysis (`segments.py`)
+#### Segment Analysis
+- Multi-dimensional segment comparison
+- Premium and risk distribution by segment
+- Segment-specific action priorities
 
-**Features:**
-- Multi-dimensional segment summary
-- Segment comparison charts
-- Risk tier distribution by segment
-- Detailed contract list with export
+#### KPI Explorer
+- Distribution analysis for any KPI
+- Correlation with IVI and retention
+- Top/bottom performer identification
 
-#### KPI Explorer (`kpi_explorer.py`)
+### 6.2 Visual Design Principles
 
-**Features:**
-- KPI selection by dimension
-- Distribution analysis
-- Correlation with IVI score
-- Top/bottom performer analysis
+**Risk Communication:**
+- **High Risk (Red):** Immediate attention required
+- **Moderate Risk (Orange):** Monitoring and proactive outreach
+- **Low Risk (Green):** Healthy relationship, maintain engagement
 
-### 7.3 Technical Implementation
+**Actionability:**
+- Every visualization links to specific recommendations
+- Drill-down capability from portfolio to individual client
+- Export functionality for account team workflows
 
-**Framework:** Streamlit
-**Visualizations:** Plotly (interactive)
-**Data Loading:** Polars with st.cache_data (1-hour TTL)
-**Styling:** Custom CSS for Bupa branding
+---
 
-**Color Scheme:**
-- Primary (Bupa Blue): #003087
-- High Risk: #D64045 (red)
-- Moderate Risk: #FF6B35 (orange)
-- Low Risk: #2E8B57 (green)
+## 7. Recommended Actions and Interventions
 
-### 7.4 Running the Dashboard
+### 7.1 Dimension-Based Recommendations
 
+The system auto-generates recommendations based on which dimension is driving risk:
+
+#### When H Score is Low (Health Issues)
+
+| Symptom | Root Cause Investigation | Recommended Action |
+|---------|-------------------------|-------------------|
+| High utilization rate | Aging workforce, insufficient prevention | Deploy wellness programs, health screenings |
+| Many diagnoses per member | Chronic condition prevalence | Chronic disease management, care coordination |
+| High claim amounts | Complex treatments, late-stage care | Preventive screening campaigns, early intervention |
+
+#### When E Score is Low (Experience Issues)
+
+| Symptom | Root Cause Investigation | Recommended Action |
+|---------|-------------------------|-------------------|
+| High rejection rate | Provider network gaps, documentation issues | Network expansion, dedicated pre-auth handler |
+| Long resolution times | Process bottlenecks, resource constraints | Priority queuing, escalation review |
+| High call volume | Benefit confusion, service gaps | Member education, proactive communication |
+
+#### When U Score is Low (Cost Issues)
+
+| Symptom | Root Cause Investigation | Recommended Action |
+|---------|-------------------------|-------------------|
+| Loss ratio > 1.0 | Underpricing, adverse selection | Premium adjustment discussion, benefit redesign |
+| High cost per member | Catastrophic cases, inefficient utilization | Claims audit, provider steering |
+| Billing variance | Unpredictable utilization | Predictive monitoring, case management |
+
+### 7.2 Account Management Prioritization
+
+This prioritization is for **account manager workflow**, distinct from Customer Health Risk Segmentation which focuses on population health.
+
+| Segment Profile | Priority | Recommended Approach |
+|-----------------|----------|---------------------|
+| High Risk + Large + Unprofitable | **CRITICAL** | Executive intervention, comprehensive review |
+| High Risk + Large + Profitable | **URGENT** | Relationship manager deep-dive, root cause analysis |
+| High Risk + Small + Profitable | **MODERATE** | Efficient automated outreach |
+| Moderate Risk + Large | **WATCH** | Proactive monitoring, regular check-ins |
+| Low Risk + Large + Profitable | **NURTURE** | Maintain relationship, explore upsell |
+
+### 7.3 Early Warning Protocol
+
+**6 Months Before Renewal:**
+1. Generate IVI scores for all contracts approaching renewal
+2. Flag clients with IVI < 50 or declining trend
+3. Assign to appropriate intervention track based on dimension analysis
+4. Deploy targeted actions (wellness, service recovery, pricing review)
+5. Monitor response and adjust strategy
+
+---
+
+## 8. Model Outputs and Deliverables
+
+### 8.1 IVI Scoring Outputs
+
+| Output | Description | Update Frequency |
+|--------|-------------|------------------|
+| IVI_SCORE | Overall intelligent value index (0-100) | Per contract period |
+| H_SCORE | Health outcomes dimension | Per contract period |
+| E_SCORE | Experience quality dimension | Per contract period |
+| U_SCORE | Utilization efficiency dimension | Per contract period |
+| **HEALTH_RISK_SEGMENT** | **Customer Health Risk tier (HIGH/MODERATE_HIGH/MODERATE/LOW_MODERATE/LOW)** | Per contract period |
+| RETENTION_RISK | Retention risk category (for account management) | Per contract period |
+
+### 8.2 Model Artifacts
+
+| Artifact | Purpose | Location |
+|----------|---------|----------|
+| Model Bundle | Trained classifier + metadata | `models/ivi_model_bundle.joblib` |
+| Score Files | Historical and current IVI scores | `models/ivi_scores_*.parquet` |
+| SHAP Values | Dimension decomposition | `models/shap_subscores.parquet` |
+
+### 8.3 Dashboard Application
+
+| Component | Function |
+|-----------|----------|
+| `app.py` | Main dashboard with full functionality |
+| `app_presentation.py` | Simplified view for stakeholder presentations |
+| `pages/*.py` | Individual dashboard pages |
+| `utils/recommendations.py` | Recommendation generation logic |
+
+---
+
+## 9. Implementation Guide
+
+### 9.1 System Requirements
+
+- Python 3.9+
+- 16GB RAM minimum (32GB recommended for full data processing)
+- Modern web browser for dashboard access
+
+### 9.2 Key Dependencies
+
+```
+polars          # High-performance data processing
+pyreadstat      # SAS data file reading
+lightgbm        # Gradient boosting model
+shap            # Model interpretability
+streamlit       # Dashboard framework
+plotly          # Interactive visualizations
+```
+
+### 9.3 Execution Workflow
+
+**Step 1: Data Processing**
 ```bash
-cd /workspace/dashboard
+jupyter lab notebooks/01_Data_Exploration_Cleaning.ipynb
+```
+
+**Step 2: Business Analysis**
+```bash
+jupyter lab notebooks/02_Business_Insights_Analysis.ipynb
+```
+
+**Step 3: Model Training**
+```bash
+jupyter lab notebooks/03_IVI_ML_Model.ipynb
+```
+
+**Step 4: Dashboard Launch**
+```bash
+cd dashboard
 streamlit run app.py --server.port 8501
 ```
 
----
+### 9.4 Ongoing Operations
 
-## 8. Business Recommendations Framework
+**Score Refresh:**
+- Run monthly to capture latest data
+- Automatic detection of new contract periods
 
-### 8.1 Recommendation Generation Logic
+**Model Retraining:**
+- Trigger when validation AUC drops below 0.65
+- Recommended annually with new retention outcomes
 
-Recommendations are auto-generated based on KPI thresholds:
-
-| Trigger | Condition | Dimension | Priority |
-|---------|-----------|-----------|----------|
-| High rejection rate | REJECTION_RATE > 25% | E | HIGH/MEDIUM |
-| Long resolution time | AVG_RESOLUTION_DAYS > 10 | E | HIGH/MEDIUM |
-| High call volume | CALLS_PER_MEMBER > 0.35 | E | MEDIUM |
-| Unprofitable contract | LOSS_RATIO > 1.2 | U | HIGH/MEDIUM |
-| High cost per member | COST_PER_MEMBER > 1.5x benchmark | U | HIGH/MEDIUM |
-| High utilization | UTILIZATION_RATE > 75% | H | MEDIUM |
-| High chronic burden | DIAGNOSES_PER_UTILIZER > 4.0 | H | MEDIUM |
-
-### 8.2 Recommendation Templates
-
-#### Experience (E) Issues
-
-```yaml
-High Pre-auth Rejection:
-  Issue: "High pre-authorization rejection rate"
-  Cause: "Rejection rate {rate}% vs {benchmark}% benchmark"
-  Action: "Review rejection reasons, consider provider network expansion, 
-           assign dedicated pre-auth handler"
-  Impact: "Could improve E_SCORE by 15-20 points"
-
-Long Resolution Time:
-  Issue: "Long ticket resolution time"
-  Cause: "Average {days} days vs {benchmark} day benchmark"
-  Action: "Assign dedicated support representative, review escalation process, 
-           implement priority queuing"
-  Impact: "Improved E_SCORE and client satisfaction"
-```
-
-#### Utilization (U) Issues
-
-```yaml
-Unprofitable Loss Ratio:
-  Issue: "Unprofitable loss ratio"
-  Cause: "Loss ratio {ratio} (break-even = 1.0)"
-  Action: "Premium adjustment discussion, benefit redesign, 
-           cost-sharing increase, wellness program enrollment"
-  Impact: "Required for sustainable contract renewal"
-
-High Cost Per Member:
-  Issue: "High cost per member"
-  Cause: "SAR {cost}/member vs SAR {benchmark} benchmark"
-  Action: "Claims audit, chronic condition management program, 
-           provider steering incentives"
-  Impact: "Improved U_SCORE and profitability"
-```
-
-#### Health (H) Issues
-
-```yaml
-High Utilization:
-  Issue: "High healthcare utilization"
-  Cause: "Utilization {rate}% vs {benchmark}% benchmark"
-  Action: "Wellness program introduction, preventive screening campaign, 
-           health education"
-  Impact: "Long-term cost reduction and improved H_SCORE"
-
-High Chronic Burden:
-  Issue: "High chronic condition burden"
-  Cause: "{count} diagnoses/utilizer vs {benchmark} benchmark"
-  Action: "Disease management programs, chronic care coordination, 
-           specialist referral optimization"
-  Impact: "Improved health outcomes and cost predictability"
-```
-
-### 8.3 Segment-Based Action Plans
-
-| Segment | Priority | Focus | Actions |
-|---------|----------|-------|---------|
-| HIGH_RISK_LARGE_UNPROFITABLE | CRITICAL | Immediate intervention | Executive review, repricing, benefit redesign |
-| HIGH_RISK_LARGE_PROFITABLE | URGENT | Root cause analysis | Relationship manager deep-dive, service recovery |
-| HIGH_RISK_SMALL_UNPROFITABLE | LOW | Cost-benefit analysis | May not warrant retention investment |
-| HIGH_RISK_SMALL_PROFITABLE | MODERATE | Efficient outreach | Automated communications, self-service |
-| MODERATE_RISK_LARGE_* | WATCH | Proactive monitoring | Regular check-ins, trend alerts |
-| LOW_RISK_LARGE_PROFITABLE | NURTURE | Value protection | Maintain relationship, offer value-adds |
-
-### 8.4 Health Risk-Specific Recommendations
-
-| Health Risk Segment | Recommended Interventions |
-|---------------------|---------------------------|
-| **HIGH** | Chronic disease management, care coordination, targeted wellness, health screenings |
-| **MODERATE_HIGH** | Early intervention, health education, lifestyle modification support |
-| **MODERATE** | Standard preventive care, annual check-up promotions |
-| **LOW_MODERATE** | Maintain engagement, preventive screening access |
-| **LOW** | Recognize as benchmark, preserve health status |
+**Monitoring:**
+- Track IVI score distribution stability
+- Alert on significant feature distribution shifts
 
 ---
 
-## 9. Model Outputs and Deliverables
+## Document Information
 
-### 9.1 Saved Model Bundle
-
-**File:** `/volume/data/models/ivi_model_bundle.joblib`
-
-**Contents:**
-```python
-{
-    'model': LGBMClassifier,           # Trained model
-    'scaler': StandardScaler,          # Feature scaler
-    'feature_names': List[str],        # Feature list
-    'feature_groups': Dict,            # H/E/U feature mapping
-    'kpi_definitions': Dict,           # KPI metadata
-    'weights_heu': Dict,               # Dimension weights
-    'region_info': Dict,               # Region reference data
-    'network_tiers': Dict,             # Network tier info
-    'training_date': str,              # Training timestamp
-    'model_version': str               # Version identifier
-}
-```
-
-### 9.2 IVI Score Files
-
-| File | Description |
-|------|-------------|
-| `ivi_scores_segments_2022.parquet` | 2022 contracts with IVI scores and segments |
-| `ivi_scores_forward_2023.parquet` | 2023 contracts with forward predictions |
-| `ivi_scores_all_years.parquet` | Combined all years |
-| `shap_subscores.parquet` | SHAP-based H, E, U subscores |
-
-### 9.3 Key Output Columns
-
-| Column | Description | Range |
-|--------|-------------|-------|
-| IVI_SCORE_ML | ML-based IVI score | 0-100 |
-| IVI_SCORE_RULE | Rule-based IVI score | 0-100 |
-| IVI_SCORE_HYBRID | Combined final score | 0-100 |
-| H_SCORE | Health dimension score | 0-100 |
-| E_SCORE | Experience dimension score | 0-100 |
-| U_SCORE | Utilization dimension score | 0-100 |
-| IVI_RISK | Risk category | HIGH/MODERATE/LOW |
-| HEALTH_RISK_SEGMENT | Health risk segment | HIGH/MODERATE_HIGH/MODERATE/LOW_MODERATE/LOW |
-| SIZE_CLASS | Contract size | SMALL/LARGE |
-| PROFIT_CLASS | Profitability | PROFITABLE/UNPROFITABLE |
-| SEGMENT | Combined segment | 12 combinations |
+| Attribute | Value |
+|-----------|-------|
+| Version | 2.0 |
+| Date | February 4, 2026 |
+| Event | Bupa Arabia Futurethon Hackathon |
+| Track | HealthTech - Intelligent Value Index |
 
 ---
 
-## 10. Technical Appendix
-
-### 10.1 Environment Setup
-
-```bash
-# Python environment
-python -m venv .venv
-source .venv/bin/activate
-
-# Core dependencies
-pip install polars pyreadstat lightgbm shap streamlit plotly joblib
-
-# Full requirements
-pip install -r requirements.txt
-```
-
-### 10.2 Running Notebooks
-
-```bash
-# Start Jupyter
-jupyter lab --ip=0.0.0.0 --port=8888
-
-# Execute notebooks in order
-1. 01_Data_Exploration_Cleaning.ipynb
-2. 02_Business_Insights_Analysis.ipynb
-3. 03_IVI_ML_Model.ipynb
-```
-
-### 10.3 Running Dashboard
-
-```bash
-cd /workspace/dashboard
-streamlit run app.py --server.port 8501
-
-# For presentation mode
-streamlit run app_presentation.py --server.port 8502
-```
-
-### 10.4 Key Configuration Parameters
-
-```python
-# Contract filtering
-MIN_MEMBERS = 5  # Minimum members to include contract
-
-# Model parameters
-RANDOM_STATE = 42
-TEST_SIZE = 0.15
-VALIDATION_SIZE = 0.15
-EARLY_STOPPING_ROUNDS = 50
-
-# IVI scoring weights - DERIVED FROM MODEL
-# These are extracted from SHAP feature importance analysis
-# and updated when model is retrained
-WEIGHTS_HEU = model_bundle.get('weights_heu')  # Data-driven, not static
-
-# Health Risk Index weights - DERIVED FROM MODEL
-# Computed from feature importance of health-related features
-HEALTH_RISK_WEIGHTS = model_bundle.get('health_weights')  # Data-driven
-
-# Risk thresholds (percentile-based)
-RISK_THRESHOLDS = {
-    'HIGH': 90,           # Top 10%
-    'MODERATE_HIGH': 84,  # 84th-90th percentile
-    'MODERATE': 16,       # 16th-84th percentile
-    'LOW_MODERATE': 10,   # 10th-16th percentile
-    'LOW': 0              # Bottom 10%
-}
-```
-
-### 10.5 Data Refresh Process
-
-```python
-# To refresh IVI scores with new data:
-
-1. Load new data into parquet format
-2. Run feature engineering pipeline
-3. Load model bundle
-4. Generate predictions:
-   model = bundle['model']
-   proba = model.predict_proba(X_new)[:, 1]
-   ivi_score_ml = proba * 100
-5. Calculate rule-based scores using ECDF from reference distribution
-6. Save updated scores to parquet
-```
-
-### 10.6 Monitoring and Maintenance
-
-**Model Drift Detection:**
-- Monitor IVI score distribution over time
-- Track feature distributions vs training baseline
-- Alert if KL divergence exceeds threshold
-
-**Retraining Triggers:**
-- AUC drops below 0.65 on new data
-- Feature distributions shift significantly
-- New contract year data available
-
----
-
-## Document Control
-
-| Version | Date | Author | Changes |
-|---------|------|--------|---------|
-| 1.0 | Feb 3, 2026 | IVI Team | Initial technical report |
-
----
-
-*This document provides the complete technical implementation details for the Intelligent Value Index (IVI) system developed for the Bupa Arabia Health Hackathon.*
+*This implementation supports Bupa Arabia's mission to deliver sustainable healthcare value through data-driven insights and proactive client management.*

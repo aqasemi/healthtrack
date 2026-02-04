@@ -228,12 +228,53 @@ IVI_SCORE = Retention_Probability x 100
 
 ---
 
-## Slide 10: Risk Segmentation Framework
+## Slide 10: Customer Health Risk Segmentation
 
-### Multi-Dimensional Segmentation
+### Purpose
+Categorize clients based on the **health profile** of their member population to enable targeted health interventions.
+
+**Key Question:** "How healthy is this client's member population, and what health interventions are needed?"
+
+### Health Risk Index (HRI) Methodology
+
+| Health Indicator | Weight | Measures |
+|------------------|--------|----------|
+| Utilization Rate | 25% | % of members using healthcare services |
+| Diagnoses per Utilizer | 30% | Chronic condition burden per active member |
+| Average Claim Amount | 25% | Claim severity and treatment complexity |
+| Cost per Member | 20% | Overall healthcare consumption |
+
+Each indicator is converted to a **percentile rank** relative to the portfolio, then weighted to compute the Health Risk Index.
+
+### Health Risk Segments
+
+| Segment | Threshold | Description | Recommended Interventions |
+|---------|-----------|-------------|---------------------------|
+| **HIGH** | HRI >= P90 | Top 10% - highest health risk | Chronic disease management, care coordination |
+| **MODERATE_HIGH** | HRI P84-P90 | Elevated risk | Early intervention, health education |
+| **MODERATE** | HRI P16-P84 | Average population health | Standard preventive care |
+| **LOW_MODERATE** | HRI P10-P16 | Below average risk | Maintain engagement |
+| **LOW** | HRI <= P10 | Healthiest population | Preserve health status |
+
+### Health Risk vs Business Risk
+
+| Aspect | Health Risk Segmentation | Business Risk (IVI-based) |
+|--------|--------------------------|---------------------------|
+| **Focus** | Population health profile | Financial and retention risk |
+| **Indicators** | Utilization, diagnoses, claims | IVI score, loss ratio, premium |
+| **Purpose** | Target health interventions | Prioritize account management |
+| **Actions** | Wellness programs, care management | Pricing, service recovery |
+
+**Key Insight:** A client can have HIGH health risk but LOW business risk (if profitable), or vice versa. Both perspectives inform complementary interventions.
+
+---
+
+## Slide 11: Business Segmentation Framework
+
+### Multi-Dimensional Business Segmentation
 IVI score alone is not enough - we segment by:
 
-1. **IVI Risk Level**
+1. **IVI Risk Level** (Retention Risk)
    - HIGH RISK: IVI < 33rd percentile
    - MODERATE RISK: IVI 33-67th percentile
    - LOW RISK: IVI > 67th percentile
@@ -263,7 +304,7 @@ Account managers focus on HIGH/CRITICAL priority first.
 
 ---
 
-## Slide 11: Interpretability - Understanding Why
+## Slide 12: Interpretability - Understanding Why
 
 ### The "Why" Behind Each Score
 
@@ -295,7 +336,7 @@ Every client gets three sub-scores explaining the overall IVI:
 
 ---
 
-## Slide 12: Interesting Findings - Seasonality & Ramadan
+## Slide 13: Interesting Findings - Seasonality & Ramadan
 
 ### Q4 Utilization Spike
 - Claims increase 20-30% in Q4 (October-December)
@@ -322,7 +363,7 @@ Every client gets three sub-scores explaining the overall IVI:
 
 ---
 
-## Slide 13: Interesting Findings - Demographics & Regional Patterns
+## Slide 14: Interesting Findings - Demographics & Regional Patterns
 
 ### New Contracts in 2023 Were Mostly Small Corporates
 - 2023 saw influx of small/micro contracts
@@ -350,7 +391,7 @@ Every client gets three sub-scores explaining the overall IVI:
 
 ---
 
-## Slide 14: Interesting Findings - Health Condition Patterns
+## Slide 15: Interesting Findings - Health Condition Patterns
 
 ### Members with Chronic Conditions
 - Contracts with >20% chronic prevalence have 2x loss ratio
@@ -375,7 +416,7 @@ Every client gets three sub-scores explaining the overall IVI:
 
 ---
 
-## Slide 15: Case Study 1 - High-Value Client at Risk
+## Slide 16: Case Study 1 - High-Value Client at Risk
 
 ### Client Profile: Al-Rajhi Holdings (Hypothetical)
 | Metric | Value | Benchmark |
@@ -407,7 +448,7 @@ Every client gets three sub-scores explaining the overall IVI:
 
 ---
 
-## Slide 16: Case Study 2 - Hidden Churn Risk
+## Slide 17: Case Study 2 - Hidden Churn Risk
 
 ### Client Profile: Tech Startup Co (Hypothetical)
 | Metric | Value | Benchmark |
@@ -442,7 +483,7 @@ This client is profitable but at risk - why?
 
 ---
 
-## Slide 17: Case Study 3 - Upsell Opportunity
+## Slide 18: Case Study 3 - Upsell Opportunity
 
 ### Client Profile: Saudi Construction Corp (Hypothetical)
 | Metric | Value | Benchmark |
@@ -475,7 +516,7 @@ This client is profitable but at risk - why?
 
 ---
 
-## Slide 18: Dashboard & Tool Overview
+## Slide 19: Dashboard & Tool Overview
 
 ### IVI Dashboard Features
 
@@ -509,7 +550,7 @@ This client is profitable but at risk - why?
 
 ---
 
-## Slide 19: Key Takeaways & Business Value
+## Slide 20: Key Takeaways & Business Value
 
 ### Technical Achievements
 1. Processed 400M+ rows efficiently (Polars + pyreadstat)
@@ -532,7 +573,7 @@ This client is profitable but at risk - why?
 
 ---
 
-## Slide 20: Next Steps & Recommendations
+## Slide 21: Next Steps & Recommendations
 
 ### Immediate (0-3 months)
 1. Deploy IVI dashboard pilot with 10 account managers
